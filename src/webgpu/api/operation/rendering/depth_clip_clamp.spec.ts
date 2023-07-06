@@ -4,7 +4,7 @@ depth ranges as well.
 `;
 
 import { makeTestGroup } from '../../../../common/framework/test_group.js';
-import { kDepthStencilFormats, kTextureFormatInfo } from '../../../capability_info.js';
+import { kDepthStencilFormats, kTextureFormatInfo } from '../../../format_info.js';
 import { GPUTest } from '../../../gpu_test.js';
 import {
   checkElementsBetween,
@@ -36,19 +36,22 @@ have unexpected values then get drawn to the color buffer, which is later checke
   .params(u =>
     u //
       .combine('format', kDepthStencilFormats)
-      .filter(p => kTextureFormatInfo[p.format].depth)
+      .filter(p => !!kTextureFormatInfo[p.format].depth)
       .combine('unclippedDepth', [undefined, false, true])
       .combine('writeDepth', [false, true])
       .combine('multisampled', [false, true])
   )
+  .beforeAllSubcases(t => {
+    const info = kTextureFormatInfo[t.params.format];
+
+    t.selectDeviceOrSkipTestCase([
+      t.params.unclippedDepth ? 'depth-clip-control' : undefined,
+      info.feature,
+    ]);
+  })
   .fn(async t => {
     const { format, unclippedDepth, writeDepth, multisampled } = t.params;
     const info = kTextureFormatInfo[format];
-
-    await t.selectDeviceOrSkipTestCase([
-      unclippedDepth ? 'depth-clip-control' : undefined,
-      info.feature,
-    ]);
 
     /** Number of depth values to test for both vertex output and frag_depth output. */
     const kNumDepthValues = 8;
@@ -62,8 +65,8 @@ have unexpected values then get drawn to the color buffer, which is later checke
       var<private> kDepths: array<f32, ${kNumDepthValues}> = array<f32, ${kNumDepthValues}>(
           -1.0, -0.5, 0.0, 0.25, 0.75, 1.0, 1.5, 2.0);
 
-      let vpMin: f32 = ${kViewportMinDepth};
-      let vpMax: f32 = ${kViewportMaxDepth};
+      const vpMin: f32 = ${kViewportMinDepth};
+      const vpMax: f32 = ${kViewportMaxDepth};
 
       // Draw the points in a straight horizontal row, one per pixel.
       fn vertexX(idx: u32) -> f32 {
@@ -90,7 +93,7 @@ have unexpected values then get drawn to the color buffer, which is later checke
         @location(0) @interpolate(flat) vertexIndex: u32,
       };
 
-      @stage(vertex)
+      @vertex
       fn vtest(@builtin(vertex_index) idx: u32) -> VFTest {
         var vf: VFTest;
         vf.pos = vec4<f32>(vertexX(idx), 0.0, vertexZ(idx), 1.0);
@@ -109,13 +112,13 @@ have unexpected values then get drawn to the color buffer, which is later checke
         output.fragInputZDiff[vf.vertexIndex] = vf.pos.z - expectedFragPosZ(vf.vertexIndex);
       }
 
-      @stage(fragment)
+      @fragment
       fn ftest_WriteDepth(vf: VFTest) -> @builtin(frag_depth) f32 {
         checkZ(vf);
         return kDepths[vf.vertexIndex % ${kNumDepthValues}u];
       }
 
-      @stage(fragment)
+      @fragment
       fn ftest_NoWriteDepth(vf: VFTest) {
         checkZ(vf);
       }
@@ -127,7 +130,7 @@ have unexpected values then get drawn to the color buffer, which is later checke
         @location(0) @interpolate(flat) vertexIndex: u32,
       };
 
-      @stage(vertex)
+      @vertex
       fn vcheck(@builtin(vertex_index) idx: u32) -> VFCheck {
         var vf: VFCheck;
         // Depth=0.5 because we want to render every point, not get clipped.
@@ -141,7 +144,7 @@ have unexpected values then get drawn to the color buffer, which is later checke
         @location(0) color: f32,
       };
 
-      @stage(fragment)
+      @fragment
       fn fcheck(vf: VFCheck) -> FCheck {
         let vertZ = vertexZ(vf.vertexIndex);
         let outOfRange = vertZ < 0.0 || vertZ > 1.0;
@@ -168,12 +171,13 @@ have unexpected values then get drawn to the color buffer, which is later checke
     // Draw points at different vertex depths and fragment depths into the depth attachment,
     // with a viewport of [0.25,0.75].
     const testPipeline = t.device.createRenderPipeline({
+      layout: 'auto',
       vertex: { module, entryPoint: 'vtest' },
       primitive: {
         topology: 'point-list',
         unclippedDepth,
       },
-      depthStencil: { format, depthWriteEnabled: true },
+      depthStencil: { format, depthWriteEnabled: true, depthCompare: 'always' },
       multisample: multisampled ? { count: 4 } : undefined,
       fragment: {
         module,
@@ -184,6 +188,7 @@ have unexpected values then get drawn to the color buffer, which is later checke
 
     // Use depth comparison to check that the depth attachment now has the expected values.
     const checkPipeline = t.device.createRenderPipeline({
+      layout: 'auto',
       vertex: { module, entryPoint: 'vcheck' },
       primitive: { topology: 'point-list' },
       depthStencil: {
@@ -347,18 +352,21 @@ to be empty.`
   .params(u =>
     u //
       .combine('format', kDepthStencilFormats)
-      .filter(p => kTextureFormatInfo[p.format].depth)
+      .filter(p => !!kTextureFormatInfo[p.format].depth)
       .combine('unclippedDepth', [false, true])
       .combine('multisampled', [false, true])
   )
-  .fn(async t => {
-    const { format, unclippedDepth, multisampled } = t.params;
-    const info = kTextureFormatInfo[format];
+  .beforeAllSubcases(t => {
+    const info = kTextureFormatInfo[t.params.format];
 
-    await t.selectDeviceOrSkipTestCase([
-      unclippedDepth ? 'depth-clip-control' : undefined,
+    t.selectDeviceOrSkipTestCase([
+      t.params.unclippedDepth ? 'depth-clip-control' : undefined,
       info.feature,
     ]);
+  })
+  .fn(t => {
+    const { format, unclippedDepth, multisampled } = t.params;
+    const info = kTextureFormatInfo[format];
 
     const kNumDepthValues = 8;
     const kViewportMinDepth = 0.25;
@@ -369,8 +377,8 @@ to be empty.`
       var<private> kDepths: array<f32, ${kNumDepthValues}> = array<f32, ${kNumDepthValues}>(
           -1.0, -0.5, 0.0, 0.25, 0.75, 1.0, 1.5, 2.0);
 
-      let vpMin: f32 = ${kViewportMinDepth};
-      let vpMax: f32 = ${kViewportMaxDepth};
+      const vpMin: f32 = ${kViewportMinDepth};
+      const vpMax: f32 = ${kViewportMaxDepth};
 
       // Draw the points in a straight horizontal row, one per pixel.
       fn vertexX(idx: u32) -> f32 {
@@ -382,7 +390,7 @@ to be empty.`
         @location(0) @interpolate(flat) vertexIndex: u32,
       };
 
-      @stage(vertex)
+      @vertex
       fn vmain(@builtin(vertex_index) idx: u32) -> VF {
         var vf: VF;
         // Depth=0.5 because we want to render every point, not get clipped.
@@ -391,7 +399,7 @@ to be empty.`
         return vf;
       }
 
-      @stage(fragment)
+      @fragment
       fn finit(vf: VF) -> @builtin(frag_depth) f32 {
         // Expected values of the ftest pipeline.
         return clamp(kDepths[vf.vertexIndex], vpMin, vpMax);
@@ -402,7 +410,7 @@ to be empty.`
         @location(0) color: f32,
       };
 
-      @stage(fragment)
+      @fragment
       fn ftest(vf: VF) -> FTest {
         var f: FTest;
         f.depth = kDepths[vf.vertexIndex]; // Should get clamped to the viewport.
@@ -415,9 +423,10 @@ to be empty.`
 
     // Initialize depth attachment with expected values, in [0.25,0.75].
     const initPipeline = t.device.createRenderPipeline({
+      layout: 'auto',
       vertex: { module, entryPoint: 'vmain' },
       primitive: { topology: 'point-list' },
-      depthStencil: { format, depthWriteEnabled: true },
+      depthStencil: { format, depthWriteEnabled: true, depthCompare: 'always' },
       multisample: multisampled ? { count: 4 } : undefined,
       fragment: { module, entryPoint: 'finit', targets: [] },
     });
@@ -425,12 +434,13 @@ to be empty.`
     // With a viewport set to [0.25,0.75], output values in [0.0,1.0] and check they're clamped
     // before the depth test, regardless of whether unclippedDepth is enabled.
     const testPipeline = t.device.createRenderPipeline({
+      layout: 'auto',
       vertex: { module, entryPoint: 'vmain' },
       primitive: {
         topology: 'point-list',
         unclippedDepth,
       },
-      depthStencil: { format, depthCompare: 'not-equal' },
+      depthStencil: { format, depthCompare: 'not-equal', depthWriteEnabled: false },
       multisample: multisampled ? { count: 4 } : undefined,
       fragment: { module, entryPoint: 'ftest', targets: [{ format: 'r8unorm' }] },
     });
@@ -468,9 +478,9 @@ to be empty.`
           depthClearValue: 1.0,
           depthLoadOp: 'clear',
           depthStoreOp: 'store',
-          stencilClearValue: 0,
-          stencilLoadOp: 'clear',
-          stencilStoreOp: 'discard',
+          stencilClearValue: info.stencil ? 0 : undefined,
+          stencilLoadOp: info.stencil ? 'clear' : undefined,
+          stencilStoreOp: info.stencil ? 'discard' : undefined,
         },
       });
       pass.setPipeline(initPipeline);

@@ -1,20 +1,23 @@
 /**
  * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
  **/ import { assert } from '../../../common/util/util.js';
+import { takeScreenshotDelayed } from '../../../common/util/wpt_reftest_wait.js';
 
-export async function runRefTest(fn) {
-  assert(
-    typeof navigator !== 'undefined' && navigator.gpu !== undefined,
-    'No WebGPU implementation found'
-  );
+export function runRefTest(fn) {
+  void (async () => {
+    assert(
+      typeof navigator !== 'undefined' && navigator.gpu !== undefined,
+      'No WebGPU implementation found'
+    );
 
-  const adapter = await navigator.gpu.requestAdapter();
-  assert(adapter !== null);
-  const device = await adapter.requestDevice();
-  assert(device !== null);
-  const queue = device.queue;
+    const adapter = await navigator.gpu.requestAdapter();
+    assert(adapter !== null);
+    const device = await adapter.requestDevice();
+    assert(device !== null);
+    const queue = device.queue;
 
-  await fn({ device, queue });
+    await fn({ device, queue });
 
-  takeScreenshotDelayed(50);
+    takeScreenshotDelayed(50);
+  })();
 }

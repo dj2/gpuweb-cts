@@ -4,7 +4,7 @@
 Tests for depth clipping, depth clamping (at various points in the pipeline), and maybe extended
 depth ranges as well.
 `;import { makeTestGroup } from '../../../../common/framework/test_group.js';
-import { kDepthStencilFormats, kTextureFormatInfo } from '../../../capability_info.js';
+import { kDepthStencilFormats, kTextureFormatInfo } from '../../../format_info.js';
 import { GPUTest } from '../../../gpu_test.js';
 import {
 checkElementsBetween,
@@ -36,19 +36,22 @@ have unexpected values then get drawn to the color buffer, which is later checke
 params((u) =>
 u //
 .combine('format', kDepthStencilFormats).
-filter((p) => kTextureFormatInfo[p.format].depth).
+filter((p) => !!kTextureFormatInfo[p.format].depth).
 combine('unclippedDepth', [undefined, false, true]).
 combine('writeDepth', [false, true]).
 combine('multisampled', [false, true])).
 
+beforeAllSubcases((t) => {
+  const info = kTextureFormatInfo[t.params.format];
+
+  t.selectDeviceOrSkipTestCase([
+  t.params.unclippedDepth ? 'depth-clip-control' : undefined,
+  info.feature]);
+
+}).
 fn(async (t) => {
   const { format, unclippedDepth, writeDepth, multisampled } = t.params;
   const info = kTextureFormatInfo[format];
-
-  await t.selectDeviceOrSkipTestCase([
-  unclippedDepth ? 'depth-clip-control' : undefined,
-  info.feature]);
-
 
   /** Number of depth values to test for both vertex output and frag_depth output. */
   const kNumDepthValues = 8;
@@ -62,8 +65,8 @@ fn(async (t) => {
       var<private> kDepths: array<f32, ${kNumDepthValues}> = array<f32, ${kNumDepthValues}>(
           -1.0, -0.5, 0.0, 0.25, 0.75, 1.0, 1.5, 2.0);
 
-      let vpMin: f32 = ${kViewportMinDepth};
-      let vpMax: f32 = ${kViewportMaxDepth};
+      const vpMin: f32 = ${kViewportMinDepth};
+      const vpMax: f32 = ${kViewportMaxDepth};
 
       // Draw the points in a straight horizontal row, one per pixel.
       fn vertexX(idx: u32) -> f32 {
@@ -90,7 +93,7 @@ fn(async (t) => {
         @location(0) @interpolate(flat) vertexIndex: u32,
       };
 
-      @stage(vertex)
+      @vertex
       fn vtest(@builtin(vertex_index) idx: u32) -> VFTest {
         var vf: VFTest;
         vf.pos = vec4<f32>(vertexX(idx), 0.0, vertexZ(idx), 1.0);
@@ -109,13 +112,13 @@ fn(async (t) => {
         output.fragInputZDiff[vf.vertexIndex] = vf.pos.z - expectedFragPosZ(vf.vertexIndex);
       }
 
-      @stage(fragment)
+      @fragment
       fn ftest_WriteDepth(vf: VFTest) -> @builtin(frag_depth) f32 {
         checkZ(vf);
         return kDepths[vf.vertexIndex % ${kNumDepthValues}u];
       }
 
-      @stage(fragment)
+      @fragment
       fn ftest_NoWriteDepth(vf: VFTest) {
         checkZ(vf);
       }
@@ -127,7 +130,7 @@ fn(async (t) => {
         @location(0) @interpolate(flat) vertexIndex: u32,
       };
 
-      @stage(vertex)
+      @vertex
       fn vcheck(@builtin(vertex_index) idx: u32) -> VFCheck {
         var vf: VFCheck;
         // Depth=0.5 because we want to render every point, not get clipped.
@@ -141,7 +144,7 @@ fn(async (t) => {
         @location(0) color: f32,
       };
 
-      @stage(fragment)
+      @fragment
       fn fcheck(vf: VFCheck) -> FCheck {
         let vertZ = vertexZ(vf.vertexIndex);
         let outOfRange = vertZ < 0.0 || vertZ > 1.0;
@@ -168,22 +171,24 @@ fn(async (t) => {
   // Draw points at different vertex depths and fragment depths into the depth attachment,
   // with a viewport of [0.25,0.75].
   const testPipeline = t.device.createRenderPipeline({
+    layout: 'auto',
     vertex: { module, entryPoint: 'vtest' },
     primitive: {
       topology: 'point-list',
-      unclippedDepth },
-
-    depthStencil: { format, depthWriteEnabled: true },
+      unclippedDepth
+    },
+    depthStencil: { format, depthWriteEnabled: true, depthCompare: 'always' },
     multisample: multisampled ? { count: 4 } : undefined,
     fragment: {
       module,
       entryPoint: writeDepth ? 'ftest_WriteDepth' : 'ftest_NoWriteDepth',
-      targets: [] } });
-
-
+      targets: []
+    }
+  });
 
   // Use depth comparison to check that the depth attachment now has the expected values.
   const checkPipeline = t.device.createRenderPipeline({
+    layout: 'auto',
     vertex: { module, entryPoint: 'vcheck' },
     primitive: { topology: 'point-list' },
     depthStencil: {
@@ -194,22 +199,22 @@ fn(async (t) => {
       depthWriteEnabled: true // If the check failed, overwrite with the expected result.
     },
     multisample: multisampled ? { count: 4 } : undefined,
-    fragment: { module, entryPoint: 'fcheck', targets: [{ format: 'r8unorm' }] } });
-
+    fragment: { module, entryPoint: 'fcheck', targets: [{ format: 'r8unorm' }] }
+  });
 
   const dsTexture = t.device.createTexture({
     format,
     size: [kNumTestPoints],
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
-    sampleCount: multisampled ? 4 : 1 });
-
+    sampleCount: multisampled ? 4 : 1
+  });
   const dsTextureView = dsTexture.createView();
 
   const checkTextureDesc = {
     format: 'r8unorm',
     size: [kNumTestPoints],
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC };
-
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+  };
   const checkTexture = t.device.createTexture(checkTextureDesc);
   const checkTextureView = checkTexture.createView();
   const checkTextureMSView = multisampled ?
@@ -220,29 +225,29 @@ fn(async (t) => {
   !multisampled && info.bytesPerBlock ?
   t.device.createBuffer({
     size: kNumTestPoints * info.bytesPerBlock,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ }) :
-
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+  }) :
   undefined;
   const dsExpected =
   !multisampled && info.bytesPerBlock ?
   t.device.createBuffer({
     size: kNumTestPoints * info.bytesPerBlock,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ }) :
-
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+  }) :
   undefined;
   const checkBuffer = t.device.createBuffer({
     size: kNumTestPoints,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
-
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+  });
 
   const fragInputZFailedBuffer = t.device.createBuffer({
     size: 4 * kNumTestPoints,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
-
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+  });
   const testBindGroup = t.device.createBindGroup({
     layout: testPipeline.getBindGroupLayout(0),
-    entries: [{ binding: 0, resource: { buffer: fragInputZFailedBuffer } }] });
-
+    entries: [{ binding: 0, resource: { buffer: fragInputZFailedBuffer } }]
+  });
 
   const enc = t.device.createCommandEncoder();
   {
@@ -255,9 +260,9 @@ fn(async (t) => {
         depthStoreOp: 'store',
         stencilClearValue: info.stencil ? 0 : undefined,
         stencilLoadOp: info.stencil ? 'clear' : undefined,
-        stencilStoreOp: info.stencil ? 'discard' : undefined } });
-
-
+        stencilStoreOp: info.stencil ? 'discard' : undefined
+      }
+    });
     pass.setPipeline(testPipeline);
     pass.setBindGroup(0, testBindGroup);
     pass.setViewport(0, 0, kNumTestPoints, 1, kViewportMinDepth, kViewportMaxDepth);
@@ -277,8 +282,8 @@ fn(async (t) => {
         resolveTarget: checkTextureView,
         clearValue,
         loadOp: 'clear',
-        storeOp: 'discard' } :
-
+        storeOp: 'discard'
+      } :
       { view: checkTextureView, clearValue, loadOp: 'clear', storeOp: 'store' }],
 
       depthStencilAttachment: {
@@ -287,9 +292,9 @@ fn(async (t) => {
         depthStoreOp: 'store',
         stencilClearValue: info.stencil ? 0 : undefined,
         stencilLoadOp: info.stencil ? 'clear' : undefined,
-        stencilStoreOp: info.stencil ? 'discard' : undefined } });
-
-
+        stencilStoreOp: info.stencil ? 'discard' : undefined
+      }
+    });
     pass.setPipeline(checkPipeline);
     pass.setViewport(0, 0, kNumTestPoints, 1, 0.0, 1.0);
     pass.draw(kNumTestPoints);
@@ -324,8 +329,8 @@ fn(async (t) => {
   checkBuffer,
   (a) =>
   checkElementsPassPredicate(a, (index, value) => value === kCheckPassedValue, {
-    predicatePrinter }),
-
+    predicatePrinter
+  }),
   { type: Uint8Array, typedLength: kNumTestPoints, method: 'map' });
 
 });
@@ -347,18 +352,21 @@ to be empty.`).
 params((u) =>
 u //
 .combine('format', kDepthStencilFormats).
-filter((p) => kTextureFormatInfo[p.format].depth).
+filter((p) => !!kTextureFormatInfo[p.format].depth).
 combine('unclippedDepth', [false, true]).
 combine('multisampled', [false, true])).
 
-fn(async (t) => {
-  const { format, unclippedDepth, multisampled } = t.params;
-  const info = kTextureFormatInfo[format];
+beforeAllSubcases((t) => {
+  const info = kTextureFormatInfo[t.params.format];
 
-  await t.selectDeviceOrSkipTestCase([
-  unclippedDepth ? 'depth-clip-control' : undefined,
+  t.selectDeviceOrSkipTestCase([
+  t.params.unclippedDepth ? 'depth-clip-control' : undefined,
   info.feature]);
 
+}).
+fn((t) => {
+  const { format, unclippedDepth, multisampled } = t.params;
+  const info = kTextureFormatInfo[format];
 
   const kNumDepthValues = 8;
   const kViewportMinDepth = 0.25;
@@ -369,8 +377,8 @@ fn(async (t) => {
       var<private> kDepths: array<f32, ${kNumDepthValues}> = array<f32, ${kNumDepthValues}>(
           -1.0, -0.5, 0.0, 0.25, 0.75, 1.0, 1.5, 2.0);
 
-      let vpMin: f32 = ${kViewportMinDepth};
-      let vpMax: f32 = ${kViewportMaxDepth};
+      const vpMin: f32 = ${kViewportMinDepth};
+      const vpMax: f32 = ${kViewportMaxDepth};
 
       // Draw the points in a straight horizontal row, one per pixel.
       fn vertexX(idx: u32) -> f32 {
@@ -382,7 +390,7 @@ fn(async (t) => {
         @location(0) @interpolate(flat) vertexIndex: u32,
       };
 
-      @stage(vertex)
+      @vertex
       fn vmain(@builtin(vertex_index) idx: u32) -> VF {
         var vf: VF;
         // Depth=0.5 because we want to render every point, not get clipped.
@@ -391,7 +399,7 @@ fn(async (t) => {
         return vf;
       }
 
-      @stage(fragment)
+      @fragment
       fn finit(vf: VF) -> @builtin(frag_depth) f32 {
         // Expected values of the ftest pipeline.
         return clamp(kDepths[vf.vertexIndex], vpMin, vpMax);
@@ -402,7 +410,7 @@ fn(async (t) => {
         @location(0) color: f32,
       };
 
-      @stage(fragment)
+      @fragment
       fn ftest(vf: VF) -> FTest {
         var f: FTest;
         f.depth = kDepths[vf.vertexIndex]; // Should get clamped to the viewport.
@@ -415,39 +423,41 @@ fn(async (t) => {
 
   // Initialize depth attachment with expected values, in [0.25,0.75].
   const initPipeline = t.device.createRenderPipeline({
+    layout: 'auto',
     vertex: { module, entryPoint: 'vmain' },
     primitive: { topology: 'point-list' },
-    depthStencil: { format, depthWriteEnabled: true },
+    depthStencil: { format, depthWriteEnabled: true, depthCompare: 'always' },
     multisample: multisampled ? { count: 4 } : undefined,
-    fragment: { module, entryPoint: 'finit', targets: [] } });
-
+    fragment: { module, entryPoint: 'finit', targets: [] }
+  });
 
   // With a viewport set to [0.25,0.75], output values in [0.0,1.0] and check they're clamped
   // before the depth test, regardless of whether unclippedDepth is enabled.
   const testPipeline = t.device.createRenderPipeline({
+    layout: 'auto',
     vertex: { module, entryPoint: 'vmain' },
     primitive: {
       topology: 'point-list',
-      unclippedDepth },
-
-    depthStencil: { format, depthCompare: 'not-equal' },
+      unclippedDepth
+    },
+    depthStencil: { format, depthCompare: 'not-equal', depthWriteEnabled: false },
     multisample: multisampled ? { count: 4 } : undefined,
-    fragment: { module, entryPoint: 'ftest', targets: [{ format: 'r8unorm' }] } });
-
+    fragment: { module, entryPoint: 'ftest', targets: [{ format: 'r8unorm' }] }
+  });
 
   const dsTexture = t.device.createTexture({
     format,
     size: [kNumDepthValues],
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
-    sampleCount: multisampled ? 4 : 1 });
-
+    sampleCount: multisampled ? 4 : 1
+  });
   const dsTextureView = dsTexture.createView();
 
   const testTextureDesc = {
     format: 'r8unorm',
     size: [kNumDepthValues],
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC };
-
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+  };
   const testTexture = t.device.createTexture(testTextureDesc);
   const testTextureView = testTexture.createView();
   const testTextureMSView = multisampled ?
@@ -456,8 +466,8 @@ fn(async (t) => {
 
   const resultBuffer = t.device.createBuffer({
     size: kNumDepthValues,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
-
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+  });
 
   const enc = t.device.createCommandEncoder();
   {
@@ -468,11 +478,11 @@ fn(async (t) => {
         depthClearValue: 1.0,
         depthLoadOp: 'clear',
         depthStoreOp: 'store',
-        stencilClearValue: 0,
-        stencilLoadOp: 'clear',
-        stencilStoreOp: 'discard' } });
-
-
+        stencilClearValue: info.stencil ? 0 : undefined,
+        stencilLoadOp: info.stencil ? 'clear' : undefined,
+        stencilStoreOp: info.stencil ? 'discard' : undefined
+      }
+    });
     pass.setPipeline(initPipeline);
     pass.draw(kNumDepthValues);
     pass.end();
@@ -487,8 +497,8 @@ fn(async (t) => {
         resolveTarget: testTextureView,
         clearValue,
         loadOp: 'clear',
-        storeOp: 'discard' } :
-
+        storeOp: 'discard'
+      } :
       { view: testTextureView, clearValue, loadOp: 'clear', storeOp: 'store' }],
 
       depthStencilAttachment: {
@@ -497,9 +507,9 @@ fn(async (t) => {
         depthStoreOp: 'store',
         stencilClearValue: info.stencil ? 0 : undefined,
         stencilLoadOp: info.stencil ? 'clear' : undefined,
-        stencilStoreOp: info.stencil ? 'discard' : undefined } });
-
-
+        stencilStoreOp: info.stencil ? 'discard' : undefined
+      }
+    });
     pass.setPipeline(testPipeline);
     pass.setViewport(0, 0, kNumDepthValues, 1, kViewportMinDepth, kViewportMaxDepth);
     pass.draw(kNumDepthValues);
@@ -509,7 +519,7 @@ fn(async (t) => {
   t.device.queue.submit([enc.finish()]);
 
   t.expectGPUBufferValuesEqual(resultBuffer, new Uint8Array(kNumDepthValues), 0, {
-    method: 'map' });
-
+    method: 'map'
+  });
 });
 //# sourceMappingURL=depth_clip_clamp.spec.js.map

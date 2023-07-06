@@ -17,25 +17,55 @@ type DestroyableObject =
   | { close(): void }
   | { getExtension(extensionName: 'WEBGL_lose_context'): WEBGL_lose_context };
 
+export class SubcaseBatchState {
+  constructor(
+    protected readonly recorder: TestCaseRecorder,
+    /** The case parameters for this test fixture shared state. Subcase params are not included. */
+    public readonly params: TestParams
+  ) {}
+
+  /**
+   * Runs before the `.before()` function.
+   * @internal MAINTENANCE_TODO: Make this not visible to test code?
+   */
+  async init() {}
+  /**
+   * Runs between the `.before()` function and the subcases.
+   * @internal MAINTENANCE_TODO: Make this not visible to test code?
+   */
+  async postInit() {}
+  /**
+   * Runs after all subcases finish.
+   * @internal MAINTENANCE_TODO: Make this not visible to test code?
+   */
+  async finalize() {}
+}
+
 /**
  * A Fixture is a class used to instantiate each test sub/case at run time.
  * A new instance of the Fixture is created for every single test subcase
  * (i.e. every time the test function is run).
  */
-export class Fixture {
+export class Fixture<S extends SubcaseBatchState = SubcaseBatchState> {
   private _params: unknown;
+  private _sharedState: S;
   /**
    * Interface for recording logs and test status.
    *
    * @internal
    */
-  protected rec: TestCaseRecorder;
+  readonly rec: TestCaseRecorder;
   private eventualExpectations: Array<Promise<unknown>> = [];
   private numOutstandingAsyncExpectations = 0;
   private objectsToCleanUp: DestroyableObject[] = [];
 
+  public static MakeSharedState(recorder: TestCaseRecorder, params: TestParams): SubcaseBatchState {
+    return new SubcaseBatchState(recorder, params);
+  }
+
   /** @internal */
-  constructor(rec: TestCaseRecorder, params: TestParams) {
+  constructor(sharedState: S, rec: TestCaseRecorder, params: TestParams) {
+    this._sharedState = sharedState;
     this.rec = rec;
     this._params = params;
   }
@@ -47,19 +77,31 @@ export class Fixture {
     return this._params;
   }
 
-  // This has to be a member function instead of an async `createFixture` function, because
-  // we need to be able to ergonomically override it in subclasses.
+  /**
+   * Gets the test fixture's shared state. This object is shared between subcases
+   * within the same testcase.
+   */
+  get sharedState(): S {
+    return this._sharedState;
+  }
+
   /**
    * Override this to do additional pre-test-function work in a derived fixture.
+   * This has to be a member function instead of an async `createFixture` function, because
+   * we need to be able to ergonomically override it in subclasses.
+   *
+   * @internal MAINTENANCE_TODO: Make this not visible to test code?
    */
-  protected async init(): Promise<void> {}
+  async init(): Promise<void> {}
 
   /**
    * Override this to do additional post-test-function work in a derived fixture.
    *
    * Called even if init was unsuccessful.
+   *
+   * @internal MAINTENANCE_TODO: Make this not visible to test code?
    */
-  protected async finalize(): Promise<void> {
+  async finalize(): Promise<void> {
     assert(
       this.numOutstandingAsyncExpectations === 0,
       'there were outstanding immediateAsyncExpectations (e.g. expectUncapturedError) at the end of the test'
@@ -86,16 +128,6 @@ export class Fixture {
         o.close();
       }
     }
-  }
-
-  /** @internal */
-  doInit(): Promise<void> {
-    return this.init();
-  }
-
-  /** @internal */
-  doFinalize(): Promise<void> {
-    return this.finalize();
   }
 
   /**
@@ -159,10 +191,9 @@ export class Fixture {
    * Wraps an async function, passing it an `Error` object recording the original stack trace.
    * The async work will be implicitly waited upon before reporting a test status.
    */
-  protected eventualAsyncExpectation<T>(fn: (niceStack: Error) => Promise<T>): Promise<T> {
+  protected eventualAsyncExpectation<T>(fn: (niceStack: Error) => Promise<T>): void {
     const promise = fn(new Error());
     this.eventualExpectations.push(promise);
-    return promise;
   }
 
   private expectErrorValue(expectedError: string | true, ex: unknown, niceStack: Error): void {
@@ -214,8 +245,10 @@ export class Fixture {
   }
 
   /**
-   * Expect that the provided function throws.
-   * If an `expectedName` is provided, expect that the throw exception has that name.
+   * Expect that the provided function throws (if `true` or `string`) or not (if `false`).
+   * If a string is provided, expect that the throw exception has that name.
+   *
+   * MAINTENANCE_TODO: Change to `string | false` so the exception name is always checked.
    */
   shouldThrow(expectedError: string | boolean, fn: () => void, msg?: string): void {
     const m = msg ? ': ' + msg : '';
@@ -246,27 +279,40 @@ export class Fixture {
     return cond;
   }
 
-  /** If the argument is an `Error`, fail (or warn). If it's `undefined`, no-op. */
+  /**
+   * If the argument is an `Error`, fail (or warn). If it's `undefined`, no-op.
+   * If the argument is an array, apply the above behavior on each of elements.
+   */
   expectOK(
-    error: Error | undefined,
+    error: Error | undefined | (Error | undefined)[],
     { mode = 'fail', niceStack }: { mode?: 'fail' | 'warn'; niceStack?: Error } = {}
   ): void {
-    if (error instanceof Error) {
-      if (niceStack) {
-        error.stack = niceStack.stack;
+    const handleError = (error: Error | undefined) => {
+      if (error instanceof Error) {
+        if (niceStack) {
+          error.stack = niceStack.stack;
+        }
+        if (mode === 'fail') {
+          this.rec.expectationFailed(error);
+        } else if (mode === 'warn') {
+          this.rec.warn(error);
+        } else {
+          unreachable();
+        }
       }
-      if (mode === 'fail') {
-        this.rec.expectationFailed(error);
-      } else if (mode === 'warn') {
-        this.rec.warn(error);
-      } else {
-        unreachable();
+    };
+
+    if (Array.isArray(error)) {
+      for (const e of error) {
+        handleError(e);
       }
+    } else {
+      handleError(error);
     }
   }
 
   eventualExpectOK(
-    error: Promise<Error | undefined>,
+    error: Promise<Error | undefined | (Error | undefined)[]>,
     { mode = 'fail' }: { mode?: 'fail' | 'warn' } = {}
   ) {
     this.eventualAsyncExpectation(async niceStack => {
@@ -274,3 +320,25 @@ export class Fixture {
     });
   }
 }
+
+export type SubcaseBatchStateFromFixture<F> = F extends Fixture<infer S> ? S : never;
+
+/**
+ * FixtureClass encapsulates a constructor for fixture and a corresponding
+ * shared state factory function. An interface version of the type is also
+ * defined for mixin declaration use ONLY. The interface version is necessary
+ * because mixin classes need a constructor with a single any[] rest
+ * parameter.
+ */
+export type FixtureClass<F extends Fixture = Fixture> = {
+  new (sharedState: SubcaseBatchStateFromFixture<F>, log: TestCaseRecorder, params: TestParams): F;
+  MakeSharedState(recorder: TestCaseRecorder, params: TestParams): SubcaseBatchStateFromFixture<F>;
+};
+export type FixtureClassInterface<F extends Fixture = Fixture> = {
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  new (...args: any[]): F;
+  MakeSharedState(recorder: TestCaseRecorder, params: TestParams): SubcaseBatchStateFromFixture<F>;
+};
+export type FixtureClassWithMixin<FC, M> = FC extends FixtureClass<infer F>
+  ? FixtureClass<F & M>
+  : never;

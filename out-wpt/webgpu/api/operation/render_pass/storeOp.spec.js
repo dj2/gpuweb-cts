@@ -33,7 +33,7 @@ import {
   kTextureFormatInfo,
   kEncodableTextureFormats,
   kSizedDepthStencilFormats,
-} from '../../../capability_info.js';
+} from '../../../format_info.js';
 import { GPUTest } from '../../../gpu_test.js';
 
 // Test with a zero and non-zero mip.
@@ -102,7 +102,6 @@ g.test('render_pass_store_op,color_attachment_with_depth_stencil_attachment')
         depthStoreOp: t.params.depthStencilStoreOperation,
       },
     });
-
     pass.end();
 
     t.device.queue.submit([encoder.finish()]);
@@ -146,15 +145,15 @@ g.test('render_pass_store_op,color_attachment_only')
     u
       .combine('colorFormat', kEncodableTextureFormats)
       // Filter out any non-renderable formats
-      .filter(({ colorFormat }) => {
-        const info = kTextureFormatInfo[colorFormat];
-        return info.color && info.renderable;
-      })
+      .filter(({ colorFormat }) => !!kTextureFormatInfo[colorFormat].colorRender)
       .combine('storeOperation', kStoreOps)
       .beginSubcases()
       .combine('mipLevel', kMipLevel)
       .combine('arrayLayer', kArrayLayers)
   )
+  .beforeAllSubcases(t => {
+    t.skipIfTextureFormatNotSupported(t.params.colorFormat);
+  })
   .fn(t => {
     const colorAttachment = t.device.createTexture({
       format: t.params.colorFormat,
@@ -185,7 +184,6 @@ g.test('render_pass_store_op,color_attachment_only')
         },
       ],
     });
-
     pass.end();
     t.device.queue.submit([encoder.finish()]);
 
@@ -247,7 +245,6 @@ g.test('render_pass_store_op,multiple_color_attachments')
     const pass = encoder.beginRenderPass({
       colorAttachments: renderPassColorAttachments,
     });
-
     pass.end();
     t.device.queue.submit([encoder.finish()]);
 
@@ -310,7 +307,6 @@ TODO: Also test unsized depth/stencil formats [1]
     const depthStencilAttachment = {
       view: depthStencilAttachmentView,
     };
-
     if (kTextureFormatInfo[t.params.depthStencilFormat].depth) {
       depthStencilAttachment.depthClearValue = 1.0;
       depthStencilAttachment.depthLoadOp = 'clear';
@@ -325,7 +321,6 @@ TODO: Also test unsized depth/stencil formats [1]
       colorAttachments: [],
       depthStencilAttachment,
     });
-
     pass.end();
     t.device.queue.submit([encoder.finish()]);
 

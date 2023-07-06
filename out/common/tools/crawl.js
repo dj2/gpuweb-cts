@@ -20,8 +20,8 @@ async function crawlFilesRecursively(dir) {
     return {
       path: p,
       isDirectory: stats.isDirectory(),
-      isFile: stats.isFile() };
-
+      isFile: stats.isFile()
+    };
   }));
 
 
@@ -43,10 +43,7 @@ async function crawlFilesRecursively(dir) {
 
 }
 
-export async function crawl(
-suiteDir,
-validate = true)
-{
+export async function crawl(suiteDir, validate) {
   if (!fs.existsSync(suiteDir)) {
     console.error(`Could not find ${suiteDir}`);
     process.exit(1);

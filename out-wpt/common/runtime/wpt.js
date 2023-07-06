@@ -1,6 +1,7 @@
 /**
  * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
  **/ // Implements the wpt-embedded test runner (see also: wpt/cts.https.html).
+import { globalTestConfig } from '../framework/test_config.js';
 import { DefaultTestFileLoader } from '../internal/file_loader.js';
 import { prettyPrintLog } from '../internal/logging/log_message.js';
 import { Logger } from '../internal/logging/logger.js';
@@ -19,9 +20,11 @@ setup({
   explicit_done: true,
 });
 
-(async () => {
+void (async () => {
   const workerEnabled = optionEnabled('worker');
-  const worker = workerEnabled ? new TestWorker(false) : undefined;
+  const worker = workerEnabled ? new TestWorker() : undefined;
+
+  globalTestConfig.unrollConstEvalLoops = optionEnabled('unroll_const_eval_loops');
 
   const failOnWarnings =
     typeof shouldWebGPUCTSFailOnWarnings !== 'undefined' && (await shouldWebGPUCTSFailOnWarnings);

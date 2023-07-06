@@ -1,6 +1,6 @@
 /**
 * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
-**/import { assert, unreachable } from '../../../../../common/util/util.js';import { kTextureFormatInfo } from '../../../../capability_info.js';import { virtualMipSize } from '../../../../util/texture/base.js';
+**/import { assert, unreachable } from '../../../../../common/util/util.js';import { kTextureFormatInfo } from '../../../../format_info.js';import { virtualMipSize } from '../../../../util/texture/base.js';
 import {
 kTexelRepresentationInfo,
 getSingleDataType,
@@ -52,6 +52,7 @@ subresourceRange) =>
     'i32(GlobalInvocationID.x)' :
     unreachable();
     const computePipeline = t.device.createComputePipeline({
+      layout: 'auto',
       compute: {
         entryPoint: 'main',
         module: t.device.createShaderModule({
@@ -68,7 +69,7 @@ subresourceRange) =>
             };
             @group(0) @binding(3) var<storage, read_write> result : Result;
 
-            @stage(compute) @workgroup_size(1)
+            @compute @workgroup_size(1)
             fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
               let flatIndex : u32 = ${componentCount}u * (
                 ${width}u * ${height}u * GlobalInvocationID.z +
@@ -81,17 +82,17 @@ subresourceRange) =>
               for (var i : u32 = 0u; i < ${componentCount}u; i = i + 1u) {
                 result.values[flatIndex + i] = texel.${indexExpression};
               }
-            }` }) } });
-
-
-
+            }`
+        })
+      }
+    });
 
     for (const layer of layers) {
       const ubo = t.device.createBuffer({
         mappedAtCreation: true,
         size: 4,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+      });
       new Int32Array(ubo.getMappedRange(), 0, 1)[0] = level;
       ubo.unmap();
 
@@ -99,8 +100,8 @@ subresourceRange) =>
       width * height * depth * ReadbackTypedArray.BYTES_PER_ELEMENT * rep.componentOrder.length;
       const resultBuffer = t.device.createBuffer({
         size: byteLength,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
-
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+      });
       t.trackForCleanup(resultBuffer);
 
       const bindGroup = t.device.createBindGroup({
@@ -108,29 +109,30 @@ subresourceRange) =>
         entries: [
         {
           binding: 0,
-          resource: { buffer: ubo } },
-
+          resource: { buffer: ubo }
+        },
         {
           binding: 1,
           resource: texture.createView({
             baseArrayLayer: layer,
-            arrayLayerCount: 1 }) },
-
-
+            arrayLayerCount: 1,
+            dimension: params.dimension
+          })
+        },
         {
           binding: 3,
           resource: {
-            buffer: resultBuffer } }] });
+            buffer: resultBuffer
+          }
+        }]
 
-
-
-
+      });
 
       const commandEncoder = t.device.createCommandEncoder();
       const pass = commandEncoder.beginComputePass();
       pass.setPipeline(computePipeline);
       pass.setBindGroup(0, bindGroup);
-      pass.dispatch(width, height, depth);
+      pass.dispatchWorkgroups(width, height, depth);
       pass.end();
       t.queue.submit([commandEncoder.finish()]);
       ubo.destroy();

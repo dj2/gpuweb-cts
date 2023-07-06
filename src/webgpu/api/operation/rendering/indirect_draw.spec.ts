@@ -7,7 +7,7 @@ import {
   kDrawIndirectParametersSize,
   kDrawIndexedIndirectParametersSize,
 } from '../../../capability_info.js';
-import { GPUTest } from '../../../gpu_test.js';
+import { GPUTest, TextureTestMixin } from '../../../gpu_test.js';
 
 const filled = new Uint8Array([0, 255, 0, 255]);
 const notFilled = new Uint8Array([0, 0, 0, 0]);
@@ -125,7 +125,7 @@ class F extends GPUTest {
   }
 }
 
-export const g = makeTestGroup(F);
+export const g = makeTestGroup(TextureTestMixin(F));
 
 g.test('basics')
   .desc(
@@ -169,9 +169,10 @@ Params:
     const indirectBuffer = t.MakeIndirectBuffer(isIndexed, indirectOffset);
 
     const pipeline = t.device.createRenderPipeline({
+      layout: 'auto',
       vertex: {
         module: t.device.createShaderModule({
-          code: `@stage(vertex) fn main(@location(0) pos : vec2<f32>) -> @builtin(position) vec4<f32> {
+          code: `@vertex fn main(@location(0) pos : vec2<f32>) -> @builtin(position) vec4<f32> {
               return vec4<f32>(pos, 0.0, 1.0);
           }`,
         }),
@@ -191,7 +192,7 @@ Params:
       },
       fragment: {
         module: t.device.createShaderModule({
-          code: `@stage(fragment) fn main() -> @location(0) vec4<f32> {
+          code: `@fragment fn main() -> @location(0) vec4<f32> {
             return vec4<f32>(0.0, 1.0, 0.0, 1.0);
         }`,
         }),
@@ -233,18 +234,10 @@ Params:
     renderPass.end();
     t.queue.submit([commandEncoder.finish()]);
 
-    // The bottom left area is filled
-    t.expectSinglePixelIn2DTexture(
-      renderTarget,
-      kRenderTargetFormat,
-      { x: 0, y: 1 },
-      { exp: filled }
-    );
-    // The top right area is not filled
-    t.expectSinglePixelIn2DTexture(
-      renderTarget,
-      kRenderTargetFormat,
-      { x: 1, y: 0 },
-      { exp: notFilled }
-    );
+    t.expectSinglePixelComparisonsAreOkInTexture({ texture: renderTarget }, [
+      // The bottom left area is filled
+      { coord: { x: 0, y: 1 }, exp: filled },
+      // The top right area is not filled
+      { coord: { x: 1, y: 0 }, exp: notFilled },
+    ]);
   });

@@ -1,8 +1,19 @@
 import { Fixture } from '../../common/framework/fixture.js';
 import { unreachable } from '../../common/util/util.js';
 
+// TESTING_TODO: This should expand to more canvas types (which will enhance a bunch of tests):
+// - canvas element not in dom
+// - canvas element in dom
+// - offscreen canvas from transferControlToOffscreen from canvas not in dom
+// - offscreen canvas from transferControlToOffscreen from canvas in dom
+// - offscreen canvas from new OffscreenCanvas
 export const kAllCanvasTypes = ['onscreen', 'offscreen'] as const;
 export type CanvasType = typeof kAllCanvasTypes[number];
+
+type CanvasForCanvasType<T extends CanvasType> = {
+  onscreen: HTMLCanvasElement;
+  offscreen: OffscreenCanvas;
+}[T];
 
 /** Valid contextId for HTMLCanvasElement/OffscreenCanvas,
  *  spec: https://html.spec.whatwg.org/multipage/canvas.html#dom-canvas-getcontext
@@ -16,44 +27,28 @@ export const kValidCanvasContextIds = [
 ] as const;
 export type CanvasContext = typeof kValidCanvasContextIds[number];
 
-/** Helper(s) to determine if context is copyable. */
-export function canCopyFromCanvasContext(contextName: CanvasContext) {
-  switch (contextName) {
-    case '2d':
-    case 'webgl':
-    case 'webgl2':
-    case 'webgpu':
-      return true;
-    default:
-      return false;
-  }
-}
-
 /** Create HTMLCanvas/OffscreenCanvas. */
-export function createCanvas(
+export function createCanvas<T extends CanvasType>(
   test: Fixture,
-  canvasType: 'onscreen' | 'offscreen',
+  canvasType: T,
   width: number,
   height: number
-): HTMLCanvasElement | OffscreenCanvas {
-  let canvas: HTMLCanvasElement | OffscreenCanvas;
+): CanvasForCanvasType<T> {
   if (canvasType === 'onscreen') {
     if (typeof document !== 'undefined') {
-      canvas = createOnscreenCanvas(test, width, height);
+      return createOnscreenCanvas(test, width, height) as CanvasForCanvasType<T>;
     } else {
       test.skip('Cannot create HTMLCanvasElement');
     }
   } else if (canvasType === 'offscreen') {
     if (typeof OffscreenCanvas !== 'undefined') {
-      canvas = createOffscreenCanvas(test, width, height);
+      return createOffscreenCanvas(test, width, height) as CanvasForCanvasType<T>;
     } else {
       test.skip('Cannot create an OffscreenCanvas');
     }
   } else {
     unreachable();
   }
-
-  return canvas;
 }
 
 /** Create HTMLCanvasElement. */

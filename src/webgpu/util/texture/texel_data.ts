@@ -1,5 +1,5 @@
 import { assert, unreachable } from '../../../common/util/util.js';
-import { EncodableTextureFormat, UncompressedTextureFormat } from '../../capability_info.js';
+import { UncompressedTextureFormat, EncodableTextureFormat } from '../../format_info.js';
 import {
   assertInIntegerRange,
   float32ToFloatBits,
@@ -17,6 +17,7 @@ import {
   numberToFloat32Bits,
   float32BitsToNumber,
   numberToFloatBits,
+  unpackRGB9E5UFloat,
 } from '../conversion.js';
 import { clamp, signExtend } from '../math.js';
 
@@ -122,6 +123,24 @@ export function makeClampToRange(format: EncodableTextureFormat): ComponentMapFn
   return applyEach(x => clamp(x, repr.numericRange!), repr.componentOrder);
 }
 
+// MAINTENANCE_TODO: Look into exposing this map to the test fixture so that it can be GCed at the
+// end of each test group. That would allow for caching of larger buffers (though it's unclear how
+// ofter larger buffers are used by packComponents.)
+const smallComponentDataViews = new Map();
+function getComponentDataView(byteLength: number): DataView {
+  if (byteLength > 32) {
+    const buffer = new ArrayBuffer(byteLength);
+    return new DataView(buffer);
+  }
+  let dataView = smallComponentDataViews.get(byteLength);
+  if (!dataView) {
+    const buffer = new ArrayBuffer(byteLength);
+    dataView = new DataView(buffer);
+    smallComponentDataViews.set(byteLength, dataView);
+  }
+  return dataView;
+}
+
 /**
  * Helper function to pack components as an ArrayBuffer.
  * @param {TexelComponent[]} componentOrder - The order of the component data.
@@ -140,21 +159,26 @@ function packComponents(
   bitLengths: number | PerTexelComponent<number>,
   componentDataTypes: ComponentDataType | PerTexelComponent<ComponentDataType>
 ): ArrayBuffer {
-  const bitLengthMap =
-    typeof bitLengths === 'number' ? makePerTexelComponent(componentOrder, bitLengths) : bitLengths;
+  let bitLengthMap;
+  let totalBitLength;
+  if (typeof bitLengths === 'number') {
+    bitLengthMap = makePerTexelComponent(componentOrder, bitLengths);
+    totalBitLength = bitLengths * componentOrder.length;
+  } else {
+    bitLengthMap = bitLengths;
+    totalBitLength = Object.entries(bitLengthMap).reduce((acc, [, value]) => {
+      assert(value !== undefined);
+      return acc + value;
+    }, 0);
+  }
+  assert(totalBitLength % 8 === 0);
 
   const componentDataTypeMap =
     typeof componentDataTypes === 'string' || componentDataTypes === null
       ? makePerTexelComponent(componentOrder, componentDataTypes)
       : componentDataTypes;
 
-  const totalBitLength = Object.entries(bitLengthMap).reduce((acc, [, value]) => {
-    assert(value !== undefined);
-    return acc + value;
-  }, 0);
-  assert(totalBitLength % 8 === 0);
-
-  const data = new ArrayBuffer(totalBitLength / 8);
+  const dataView = getComponentDataView(totalBitLength / 8);
   let bitOffset = 0;
   for (const c of componentOrder) {
     const value = components[c];
@@ -172,13 +196,13 @@ function packComponents(
         if (byteOffset === bitOffset / 8 && byteLength === bitLength / 8) {
           switch (byteLength) {
             case 1:
-              new DataView(data, byteOffset, byteLength).setUint8(0, value);
+              dataView.setUint8(byteOffset, value);
               break;
             case 2:
-              new DataView(data, byteOffset, byteLength).setUint16(0, value, true);
+              dataView.setUint16(byteOffset, value, true);
               break;
             case 4:
-              new DataView(data, byteOffset, byteLength).setUint32(0, value, true);
+              dataView.setUint32(byteOffset, value, true);
               break;
             default:
               unreachable();
@@ -186,10 +210,9 @@ function packComponents(
         } else {
           // Packed representations are all 32-bit and use Uint as the data type.
           // ex.) rg10b11float, rgb10a2unorm
-          const view = new DataView(data);
-          switch (view.byteLength) {
+          switch (dataView.byteLength) {
             case 4: {
-              const currentValue = view.getUint32(0, true);
+              const currentValue = dataView.getUint32(0, true);
 
               let mask = 0xffffffff;
               const bitsToClearRight = bitOffset;
@@ -200,7 +223,7 @@ function packComponents(
 
               const newValue = (currentValue & ~mask) | (value << bitOffset);
 
-              view.setUint32(0, newValue, true);
+              dataView.setUint32(0, newValue, true);
               break;
             }
             default:
@@ -213,13 +236,13 @@ function packComponents(
         assert(byteOffset === bitOffset / 8 && byteLength === bitLength / 8);
         switch (byteLength) {
           case 1:
-            new DataView(data, byteOffset, byteLength).setInt8(0, value);
+            dataView.setInt8(byteOffset, value);
             break;
           case 2:
-            new DataView(data, byteOffset, byteLength).setInt16(0, value, true);
+            dataView.setInt16(byteOffset, value, true);
             break;
           case 4:
-            new DataView(data, byteOffset, byteLength).setInt32(0, value, true);
+            dataView.setInt32(byteOffset, value, true);
             break;
           default:
             unreachable();
@@ -229,7 +252,7 @@ function packComponents(
         assert(byteOffset === bitOffset / 8 && byteLength === bitLength / 8);
         switch (byteLength) {
           case 4:
-            new DataView(data, byteOffset, byteLength).setFloat32(0, value, true);
+            dataView.setFloat32(byteOffset, value, true);
             break;
           default:
             unreachable();
@@ -243,29 +266,59 @@ function packComponents(
     bitOffset += bitLength;
   }
 
-  return data;
+  return dataView.buffer;
 }
 
 /**
  * Unpack substrings of bits from a Uint8Array, e.g. [8,8,8,8] or [9,9,9,5].
- *
- * MAINTENANCE_TODO: Pretty slow. Could significantly optimize when `bitLengths` is 8, 16, or 32.
  */
 function unpackComponentsBits(
   componentOrder: TexelComponent[],
   byteView: Uint8Array,
   bitLengths: number | PerTexelComponent<number>
 ): PerTexelComponent<number> {
-  const bitLengthMap =
-    typeof bitLengths === 'number' ? makePerTexelComponent(componentOrder, bitLengths) : bitLengths;
+  const components = makePerTexelComponent(componentOrder, 0);
 
-  const totalBitLength = Object.entries(bitLengthMap).reduce((acc, [, value]) => {
-    assert(value !== undefined);
-    return acc + value;
-  }, 0);
+  let bitLengthMap;
+  let totalBitLength;
+  if (typeof bitLengths === 'number') {
+    let index = 0;
+    // Optimized cases for when the bit lengths are all a well aligned value.
+    switch (bitLengths) {
+      case 8:
+        for (const c of componentOrder) {
+          components[c] = byteView[index++];
+        }
+        return components;
+      case 16: {
+        const shortView = new Uint16Array(byteView.buffer, byteView.byteOffset);
+        for (const c of componentOrder) {
+          components[c] = shortView[index++];
+        }
+        return components;
+      }
+      case 32: {
+        const longView = new Uint32Array(byteView.buffer, byteView.byteOffset);
+        for (const c of componentOrder) {
+          components[c] = longView[index++];
+        }
+        return components;
+      }
+    }
+
+    bitLengthMap = makePerTexelComponent(componentOrder, bitLengths);
+    totalBitLength = bitLengths * componentOrder.length;
+  } else {
+    bitLengthMap = bitLengths;
+    totalBitLength = Object.entries(bitLengthMap).reduce((acc, [, value]) => {
+      assert(value !== undefined);
+      return acc + value;
+    }, 0);
+  }
+
   assert(totalBitLength % 8 === 0);
 
-  const components = makePerTexelComponent(componentOrder, 0);
+  const dataView = new DataView(byteView.buffer, byteView.byteOffset, byteView.byteLength);
   let bitOffset = 0;
   for (const c of componentOrder) {
     const bitLength = bitLengthMap[c];
@@ -276,16 +329,15 @@ function unpackComponentsBits(
     const byteOffset = Math.floor(bitOffset / 8);
     const byteLength = Math.ceil(bitLength / 8);
     if (byteOffset === bitOffset / 8 && byteLength === bitLength / 8) {
-      const dataView = new DataView(byteView.buffer, byteView.byteOffset + byteOffset, byteLength);
       switch (byteLength) {
         case 1:
-          value = dataView.getUint8(0);
+          value = dataView.getUint8(byteOffset);
           break;
         case 2:
-          value = dataView.getUint16(0, true);
+          value = dataView.getUint16(byteOffset, true);
           break;
         case 4:
-          value = dataView.getUint32(0, true);
+          value = dataView.getUint32(byteOffset, true);
           break;
         default:
           unreachable();
@@ -293,9 +345,8 @@ function unpackComponentsBits(
     } else {
       // Packed representations are all 32-bit and use Uint as the data type.
       // ex.) rg10b11float, rgb10a2unorm
-      const view = new DataView(byteView.buffer, byteView.byteOffset, byteView.byteLength);
-      assert(view.byteLength === 4);
-      const word = view.getUint32(0, true);
+      assert(dataView.byteLength === 4);
+      const word = dataView.getUint32(0, true);
       value = (word >>> bitOffset) & ((1 << bitLength) - 1);
     }
 
@@ -402,6 +453,10 @@ function makeIntegerInfo(
   opt: { signed: boolean }
 ): TexelRepresentationInfo {
   assert(bitLength <= 32);
+  const numericRange = opt.signed
+    ? { min: -(2 ** (bitLength - 1)), max: 2 ** (bitLength - 1) - 1 }
+    : { min: 0, max: 2 ** bitLength - 1 };
+  const maxUnsignedValue = 2 ** bitLength;
   const encode = applyEach(
     (n: number) => (assertInIntegerRange(n, bitLength, opt.signed), n),
     componentOrder
@@ -410,6 +465,11 @@ function makeIntegerInfo(
     (n: number) => (assertInIntegerRange(n, bitLength, opt.signed), n),
     componentOrder
   );
+  const bitsToNumber = applyEach((n: number) => {
+    const decodedN = opt.signed ? (n > numericRange.max ? n - maxUnsignedValue : n) : n;
+    assertInIntegerRange(decodedN, bitLength, opt.signed);
+    return decodedN;
+  }, componentOrder);
 
   let bitsToULPFromZero: ComponentMapFn;
   if (opt.signed) {
@@ -432,11 +492,9 @@ function makeIntegerInfo(
       packComponents(componentOrder, components, bitLength, dataType),
     unpackBits: (data: Uint8Array) => unpackComponentsBits(componentOrder, data, bitLength),
     numberToBits: applyEach(v => v & bitMask, componentOrder),
-    bitsToNumber: decode,
+    bitsToNumber,
     bitsToULPFromZero,
-    numericRange: opt.signed
-      ? { min: -(2 ** (bitLength - 1)), max: 2 ** (bitLength - 1) - 1 }
-      : { min: 0, max: 2 ** bitLength - 1 },
+    numericRange,
   };
 }
 
@@ -548,7 +606,7 @@ export type TexelRepresentationInfo = {
   /** Decode the data representation into the shader values. ex.) unorm8 255 -> float 1.0 */
   // MAINTENANCE_TODO: Replace with bitsToNumber?
   readonly decode: ComponentMapFn;
-  /** Pack texel component values into an ArrayBuffer. ex.) rg8unorm {r: 0, g: 255} -> 0xFF00 */
+  /** Pack texel component values into an ArrayBuffer. ex.) rg8unorm `{r: 0, g: 255}` -> 0xFF00 */
   // MAINTENANCE_TODO: Replace with packBits?
   readonly pack: ComponentPackFn;
 
@@ -719,13 +777,7 @@ export const kTexelRepresentationInfo: {
         ]).buffer,
       // For the purpose of unpacking, expand into three "ufloat14" values.
       unpackBits: (data: Uint8Array) => {
-        // Pretend the exponent part is A so we can use unpackComponentsBits.
-        const parts = unpackComponentsBits(kRGBA, data, { R: 9, G: 9, B: 9, A: 5 });
-        return {
-          R: (parts.A! << 9) | parts.R!,
-          G: (parts.A! << 9) | parts.G!,
-          B: (parts.A! << 9) | parts.B!,
-        };
+        return unpackRGB9E5UFloat((data[3] << 24) | (data[2] << 16) | (data[1] << 8) | data[0]);
       },
       numberToBits: components => ({
         R: float32ToFloatBits(components.R ?? unreachable(), 0, 5, 9, 15),
@@ -759,41 +811,6 @@ export const kTexelRepresentationInfo: {
       numericRange: { min: 0, max: 1 },
     },
     stencil8: makeIntegerInfo([TexelComponent.Stencil], 8, { signed: false }),
-    'depth24unorm-stencil8': {
-      componentOrder: [TexelComponent.Depth, TexelComponent.Stencil],
-      componentInfo: {
-        Depth: {
-          dataType: 'unorm',
-          bitLength: 24,
-        },
-        Stencil: {
-          dataType: 'uint',
-          bitLength: 8,
-        },
-      },
-      encode: components => {
-        assert(components.Stencil !== undefined);
-        assertInIntegerRange(components.Stencil, 8, false);
-        return {
-          Depth: floatAsNormalizedInteger(components.Depth ?? unreachable(), 24, false),
-          Stencil: components.Stencil,
-        };
-      },
-      decode: components => {
-        assert(components.Stencil !== undefined);
-        assertInIntegerRange(components.Stencil, 8, false);
-        return {
-          Depth: normalizedIntegerAsFloat(components.Depth ?? unreachable(), 24, false),
-          Stencil: components.Stencil,
-        };
-      },
-      pack: () => unreachable('depth24unorm-stencil8 data cannot be packed'),
-      unpackBits: () => unreachable('depth24unorm-stencil8 data cannot be unpacked'),
-      numberToBits: () => unreachable('not implemented'),
-      bitsToNumber: () => unreachable('not implemented'),
-      bitsToULPFromZero: () => unreachable('not implemented'),
-      numericRange: null,
-    },
     'depth32float-stencil8': {
       componentOrder: [TexelComponent.Depth, TexelComponent.Stencil],
       componentInfo: {

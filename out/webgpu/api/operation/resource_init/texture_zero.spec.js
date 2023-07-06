@@ -17,26 +17,25 @@ kUnitCaseParamsBuilder } from
 '../../../../common/framework/params_builder.js';
 import { makeTestGroup } from '../../../../common/framework/test_group.js';
 import { assert, unreachable } from '../../../../common/util/util.js';
+import { kTextureAspects, kTextureDimensions } from '../../../capability_info.js';
+import { GPUConst } from '../../../constants.js';
 import {
 kTextureFormatInfo,
-kTextureAspects,
 kUncompressedTextureFormats,
+textureDimensionAndFormatCompatible } from
 
 
-textureDimensionAndFormatCompatible,
-kTextureDimensions } from
-'../../../capability_info.js';
-import { GPUConst } from '../../../constants.js';
+'../../../format_info.js';
 import { GPUTest } from '../../../gpu_test.js';
 import { virtualMipSize } from '../../../util/texture/base.js';
 import { createTextureUploadBuffer } from '../../../util/texture/layout.js';
 import { SubresourceRange } from '../../../util/texture/subresource.js';
 import { kTexelRepresentationInfo } from '../../../util/texture/texel_data.js';
 
-export let UninitializeMethod;(function (UninitializeMethod) {UninitializeMethod["Creation"] = "Creation";UninitializeMethod["StoreOpClear"] = "StoreOpClear";})(UninitializeMethod || (UninitializeMethod = {}));
+export let UninitializeMethod;
 
-
-
+// The texture was rendered to with GPUStoreOp "clear"
+(function (UninitializeMethod) {UninitializeMethod["Creation"] = "Creation";UninitializeMethod["StoreOpClear"] = "StoreOpClear";})(UninitializeMethod || (UninitializeMethod = {}));
 const kUninitializeMethods = Object.keys(UninitializeMethod);
 
 export let ReadMethod;
@@ -46,7 +45,7 @@ export let ReadMethod;
 
 
 
-
+// Read the texture as a storage texture
 
 
 // Test with these mip level counts
@@ -81,25 +80,25 @@ const kUninitializedLayerRangesToTest = {
 // the data for each value may have a different representation. These enums are converted to a
 // representation such that their values can be compared. ex.) An integer is needed to upload to an
 // unsigned normalized format, but its value is read as a float in the shader.
-export let InitializedState;(function (InitializedState) {InitializedState[InitializedState["Canary"] = 0] = "Canary";InitializedState[InitializedState["Zero"] = 1] = "Zero";})(InitializedState || (InitializedState = {}));
+export let InitializedState;
 
-
-
+// We check that uninitialized subresources are in this state when read back.
+(function (InitializedState) {InitializedState[InitializedState["Canary"] = 0] = "Canary";InitializedState[InitializedState["Zero"] = 1] = "Zero";})(InitializedState || (InitializedState = {}));
 
 const initializedStateAsFloat = {
   [InitializedState.Zero]: 0,
-  [InitializedState.Canary]: 1 };
-
+  [InitializedState.Canary]: 1
+};
 
 const initializedStateAsUint = {
   [InitializedState.Zero]: 0,
-  [InitializedState.Canary]: 1 };
-
+  [InitializedState.Canary]: 1
+};
 
 const initializedStateAsSint = {
   [InitializedState.Zero]: 0,
-  [InitializedState.Canary]: -1 };
-
+  [InitializedState.Canary]: -1
+};
 
 function initializedStateAsColor(
 state,
@@ -118,13 +117,13 @@ format)
 
 const initializedStateAsDepth = {
   [InitializedState.Zero]: 0,
-  [InitializedState.Canary]: 0.8 };
-
+  [InitializedState.Canary]: 0.8
+};
 
 const initializedStateAsStencil = {
   [InitializedState.Zero]: 0,
-  [InitializedState.Canary]: 42 };
-
+  [InitializedState.Canary]: 42
+};
 
 function getRequiredTextureUsage(
 format,
@@ -184,8 +183,8 @@ export class TextureZeroInitTest extends GPUTest {
 
 
 
-  constructor(rec, params) {
-    super(rec, params);
+  constructor(sharedState, rec, params) {
+    super(sharedState, rec, params);
     this.p = params;
 
     const stateToTexelComponents = (state) => {
@@ -196,14 +195,14 @@ export class TextureZeroInitTest extends GPUTest {
         B,
         A,
         Depth: initializedStateAsDepth[state],
-        Stencil: initializedStateAsStencil[state] };
-
+        Stencil: initializedStateAsStencil[state]
+      };
     };
 
     this.stateToTexelComponents = {
       [InitializedState.Zero]: stateToTexelComponents(InitializedState.Zero),
-      [InitializedState.Canary]: stateToTexelComponents(InitializedState.Canary) };
-
+      [InitializedState.Canary]: stateToTexelComponents(InitializedState.Canary)
+    };
   }
 
   get textureWidth() {
@@ -261,8 +260,8 @@ export class TextureZeroInitTest extends GPUTest {
         if (!uninitialized[level][layer]) {
           yield new SubresourceRange({
             mipRange: { begin: level, count: 1 },
-            layerRange: { begin: layer, count: 1 } });
-
+            layerRange: { begin: layer, count: 1 }
+          });
         }
       }
     }
@@ -274,8 +273,8 @@ export class TextureZeroInitTest extends GPUTest {
   {
     const viewDescriptor = {
       dimension: '2d',
-      aspect };
-
+      aspect
+    };
 
     if (subresourceRange === undefined) {
       return viewDescriptor;
@@ -287,8 +286,8 @@ export class TextureZeroInitTest extends GPUTest {
         baseMipLevel: level,
         mipLevelCount: 1,
         baseArrayLayer: layer,
-        arrayLayerCount: 1 };
-
+        arrayLayerCount: 1
+      };
     }
   }
 
@@ -301,7 +300,7 @@ export class TextureZeroInitTest extends GPUTest {
     commandEncoder.pushDebugGroup('initializeWithStoreOp');
 
     for (const viewDescriptor of this.generateTextureViewDescriptorsForRendering(
-    this.p.aspect,
+    'all',
     subresourceRange))
     {
       if (kTextureFormatInfo[this.p.format].color) {
@@ -312,21 +311,21 @@ export class TextureZeroInitTest extends GPUTest {
             view: texture.createView(viewDescriptor),
             storeOp: 'store',
             clearValue: initializedStateAsColor(state, this.p.format),
-            loadOp: 'clear' }] }).
+            loadOp: 'clear'
+          }]
 
-
-
+        }).
         end();
       } else {
         const depthStencilAttachment = {
-          view: texture.createView(viewDescriptor) };
-
-        if (kTextureFormatInfo[this.p.format].depth && this.p.aspect !== 'stencil-only') {
+          view: texture.createView(viewDescriptor)
+        };
+        if (kTextureFormatInfo[this.p.format].depth) {
           depthStencilAttachment.depthClearValue = initializedStateAsDepth[state];
           depthStencilAttachment.depthLoadOp = 'clear';
           depthStencilAttachment.depthStoreOp = 'store';
         }
-        if (kTextureFormatInfo[this.p.format].stencil && this.p.aspect !== 'depth-only') {
+        if (kTextureFormatInfo[this.p.format].stencil) {
           depthStencilAttachment.stencilClearValue = initializedStateAsStencil[state];
           depthStencilAttachment.stencilLoadOp = 'clear';
           depthStencilAttachment.stencilStoreOp = 'store';
@@ -334,8 +333,8 @@ export class TextureZeroInitTest extends GPUTest {
         commandEncoder.
         beginRenderPass({
           colorAttachments: [],
-          depthStencilAttachment }).
-
+          depthStencilAttachment
+        }).
         end();
       }
     }
@@ -384,8 +383,8 @@ export class TextureZeroInitTest extends GPUTest {
       {
         buffer,
         bytesPerRow,
-        rowsPerImage },
-
+        rowsPerImage
+      },
       { texture, mipLevel: level, origin: { x: 0, y: 0, z: layer } },
       { width, height, depthOrArrayLayers: depth });
 
@@ -413,10 +412,7 @@ export class TextureZeroInitTest extends GPUTest {
     const commandEncoder = this.device.createCommandEncoder();
     commandEncoder.pushDebugGroup('discardTexture');
 
-    for (const desc of this.generateTextureViewDescriptorsForRendering(
-    this.p.aspect,
-    subresourceRange))
-    {
+    for (const desc of this.generateTextureViewDescriptorsForRendering('all', subresourceRange)) {
       if (kTextureFormatInfo[this.p.format].color) {
         commandEncoder.
         beginRenderPass({
@@ -424,36 +420,36 @@ export class TextureZeroInitTest extends GPUTest {
           {
             view: texture.createView(desc),
             storeOp: 'discard',
-            loadOp: 'load' }] }).
+            loadOp: 'load'
+          }]
 
-
-
+        }).
         end();
       } else {
         const depthStencilAttachment = {
-          view: texture.createView(desc) };
-
-        if (kTextureFormatInfo[this.p.format].depth && this.p.aspect !== 'stencil-only') {
+          view: texture.createView(desc)
+        };
+        if (kTextureFormatInfo[this.p.format].depth) {
           depthStencilAttachment.depthLoadOp = 'load';
           depthStencilAttachment.depthStoreOp = 'discard';
         }
-        if (kTextureFormatInfo[this.p.format].stencil && this.p.aspect !== 'depth-only') {
+        if (kTextureFormatInfo[this.p.format].stencil) {
           depthStencilAttachment.stencilLoadOp = 'load';
           depthStencilAttachment.stencilStoreOp = 'discard';
         }
         commandEncoder.
         beginRenderPass({
           colorAttachments: [],
-          depthStencilAttachment }).
-
+          depthStencilAttachment
+        }).
         end();
       }
     }
 
     commandEncoder.popDebugGroup();
     this.queue.submit([commandEncoder.finish()]);
-  }}
-
+  }
+}
 
 const kTestParams = kUnitCaseParamsBuilder.
 combine('dimension', kTextureDimensions).
@@ -476,10 +472,10 @@ unless(({ readMethod, format, aspect }) => {
     readMethod === ReadMethod.StencilTest && (!info.stencil || aspect === 'depth-only') ||
     readMethod === ReadMethod.ColorBlending && !info.color ||
     // [1]: Test with depth/stencil sampling
-    readMethod === ReadMethod.Sample && (info.depth || info.stencil) ||
+    readMethod === ReadMethod.Sample && (!!info.depth || !!info.stencil) ||
     aspect === 'depth-only' && !info.depth ||
     aspect === 'stencil-only' && !info.stencil ||
-    aspect === 'all' && info.depth && info.stencil ||
+    aspect === 'all' && !!info.depth && !!info.stencil ||
     // Cannot copy from a packed depth format.
     // [2]: Test copying out of the stencil aspect.
     (readMethod === ReadMethod.CopyToBuffer || readMethod === ReadMethod.CopyToTexture) && (
@@ -504,8 +500,8 @@ unless(({ dimension, readMethod, uninitializeMethod, format, sampleCount }) => {
   return (
     dimension !== '2d' && (
     sampleCount > 1 ||
-    formatInfo.depth ||
-    formatInfo.stencil ||
+    !!formatInfo.depth ||
+    !!formatInfo.stencil ||
     readMethod === ReadMethod.DepthTest ||
     readMethod === ReadMethod.StencilTest ||
     readMethod === ReadMethod.ColorBlending ||
@@ -532,7 +528,7 @@ unless(({ format, sampleCount, uninitializeMethod, readMethod }) => {
 
   return (
     (usage & GPUConst.TextureUsage.RENDER_ATTACHMENT) !== 0 && !info.renderable ||
-    (usage & GPUConst.TextureUsage.STORAGE_BINDING) !== 0 && !info.storage ||
+    (usage & GPUConst.TextureUsage.STORAGE_BINDING) !== 0 && !info.color?.storage ||
     sampleCount > 1 && !info.multisample);
 
 }).
@@ -570,16 +566,18 @@ const checkContentsImpl = {
   DepthTest: checkContentsByDepthTest,
   StencilTest: checkContentsByStencilTest,
   ColorBlending: (t) => t.skip('Not implemented'),
-  Storage: (t) => t.skip('Not implemented') };
-
+  Storage: (t) => t.skip('Not implemented')
+};
 
 export const g = makeTestGroup(TextureZeroInitTest);
 
 g.test('uninitialized_texture_is_zero').
 params(kTestParams).
-fn(async (t) => {
-  await t.selectDeviceOrSkipTestCase(kTextureFormatInfo[t.params.format].feature);
-
+beforeAllSubcases((t) => {
+  t.skipIfTextureFormatNotSupported(t.params.format);
+  t.selectDeviceOrSkipTestCase(kTextureFormatInfo[t.params.format].feature);
+}).
+fn((t) => {
   const usage = getRequiredTextureUsage(
   t.params.format,
   t.params.sampleCount,
@@ -593,8 +591,9 @@ fn(async (t) => {
     dimension: t.params.dimension,
     usage,
     mipLevelCount: t.params.mipLevelCount,
-    sampleCount: t.params.sampleCount });
-
+    sampleCount: t.params.sampleCount
+  });
+  t.trackForCleanup(texture);
 
   if (t.params.canaryOnCreation) {
     // Initialize some subresources with canary values

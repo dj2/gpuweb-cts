@@ -38,10 +38,8 @@ const memoryModelTestParams = {
   permuteSecond: 419,
   memStride: 4,
   aliasedMemory: false,
-  numMemLocations: 1,
-  numReadOutputs: 1,
-  numBehaviors: 4 };
-
+  numBehaviors: 4
+};
 
 const storageMemoryTestCode = `
   let r0 = atomicAdd(&test_locations.value[x_0], 0u);
@@ -78,18 +76,18 @@ paramsSimple([
 {
   memType: MemoryType.AtomicStorageClass,
   testType: TestType.InterWorkgroup,
-  _testCode: storageMemoryTestCode },
-
+  _testCode: storageMemoryTestCode
+},
 {
   memType: MemoryType.AtomicStorageClass,
   testType: TestType.IntraWorkgroup,
-  _testCode: storageMemoryTestCode },
-
+  _testCode: storageMemoryTestCode
+},
 {
   memType: MemoryType.AtomicWorkgroupClass,
   testType: TestType.IntraWorkgroup,
-  _testCode: workgroupMemoryTestCode }]).
-
+  _testCode: workgroupMemoryTestCode
+}]).
 
 fn(async (t) => {
   const testShader = buildTestShader(t.params._testCode, t.params.memType, t.params.testType);
@@ -100,6 +98,6 @@ fn(async (t) => {
   testShader,
   resultShader);
 
-  await memModelTester.run(20, 3);
+  await memModelTester.run(10, 3);
 });
 //# sourceMappingURL=atomicity.spec.js.map

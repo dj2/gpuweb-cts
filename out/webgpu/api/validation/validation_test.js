@@ -26,8 +26,8 @@ export class ValidationTest extends GPUTest {
       GPUTextureUsage.COPY_DST |
       GPUTextureUsage.TEXTURE_BINDING |
       GPUTextureUsage.STORAGE_BINDING |
-      GPUTextureUsage.RENDER_ATTACHMENT };
-
+      GPUTextureUsage.RENDER_ATTACHMENT
+    };
 
     switch (state) {
       case 'valid':
@@ -52,8 +52,8 @@ export class ValidationTest extends GPUTest {
   {
     descriptor = descriptor ?? {
       size: 4,
-      usage: GPUBufferUsage.VERTEX };
-
+      usage: GPUBufferUsage.VERTEX
+    };
 
     switch (state) {
       case 'valid':
@@ -65,9 +65,9 @@ export class ValidationTest extends GPUTest {
           this.device.pushErrorScope('validation');
           const buffer = this.device.createBuffer({
             ...descriptor,
-            usage: descriptor.usage | GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_SRC });
-
-          this.device.popErrorScope();
+            usage: descriptor.usage | GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_SRC
+          });
+          void this.device.popErrorScope();
           return buffer;
         }
       case 'destroyed':{
@@ -127,21 +127,27 @@ export class ValidationTest extends GPUTest {
   getErrorSampler() {
     this.device.pushErrorScope('validation');
     const sampler = this.device.createSampler({ lodMinClamp: -1 });
-    this.device.popErrorScope();
+    void this.device.popErrorScope();
     return sampler;
   }
 
   /**
-   * Return an arbitrarily-configured GPUTexture with the `TEXTURE_BINDING` usage and specified sampleCount.
+   * Return an arbitrarily-configured GPUTexture with the `TEXTURE_BINDING` usage and specified
+   * sampleCount. The `RENDER_ATTACHMENT` usage will also be specified if sampleCount > 1 as is
+   * required by WebGPU SPEC.
    */
   getSampledTexture(sampleCount = 1) {
+    const usage =
+    sampleCount > 1 ?
+    GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT :
+    GPUTextureUsage.TEXTURE_BINDING;
     return this.trackForCleanup(
     this.device.createTexture({
       size: { width: 16, height: 16, depthOrArrayLayers: 1 },
       format: 'rgba8unorm',
-      usage: GPUTextureUsage.TEXTURE_BINDING,
-      sampleCount }));
-
+      usage,
+      sampleCount
+    }));
 
   }
 
@@ -151,8 +157,8 @@ export class ValidationTest extends GPUTest {
     this.device.createTexture({
       size: { width: 16, height: 16, depthOrArrayLayers: 1 },
       format: 'rgba8unorm',
-      usage: GPUTextureUsage.STORAGE_BINDING }));
-
+      usage: GPUTextureUsage.STORAGE_BINDING
+    }));
 
   }
 
@@ -163,8 +169,8 @@ export class ValidationTest extends GPUTest {
       size: { width: 16, height: 16, depthOrArrayLayers: 1 },
       format: 'rgba8unorm',
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
-      sampleCount }));
-
+      sampleCount
+    }));
 
   }
 
@@ -174,9 +180,9 @@ export class ValidationTest extends GPUTest {
     const texture = this.device.createTexture({
       size: { width: 0, height: 0, depthOrArrayLayers: 0 },
       format: 'rgba8unorm',
-      usage: GPUTextureUsage.TEXTURE_BINDING });
-
-    this.device.popErrorScope();
+      usage: GPUTextureUsage.TEXTURE_BINDING
+    });
+    void this.device.popErrorScope();
     return texture;
   }
 
@@ -184,12 +190,12 @@ export class ValidationTest extends GPUTest {
   getErrorTextureView() {
     this.device.pushErrorScope('validation');
     const view = this.getErrorTexture().createView();
-    this.device.popErrorScope();
+    void this.device.popErrorScope();
     return view;
   }
 
   /**
-   * Return an arbitrary object of the specified {@link BindableResource} type
+   * Return an arbitrary object of the specified {@link webgpu/capability_info!BindableResource} type
    * (e.g. `'errorBuf'`, `'nonFiltSamp'`, `sampledTexMS`, etc.)
    */
   getBindingResource(bindingType) {
@@ -244,8 +250,8 @@ export class ValidationTest extends GPUTest {
       size: { width: 4, height: 4, depthOrArrayLayers: 1 },
       format: 'rgba8unorm',
       usage: GPUTextureUsage.TEXTURE_BINDING,
-      sampleCount });
-
+      sampleCount
+    });
   }
 
   /** Return an arbitrarily-configured GPUTexture with the `STORAGE` usage from mismatched device. */
@@ -253,8 +259,8 @@ export class ValidationTest extends GPUTest {
     return this.getDeviceMismatchedTexture({
       size: { width: 4, height: 4, depthOrArrayLayers: 1 },
       format: 'rgba8unorm',
-      usage: GPUTextureUsage.STORAGE_BINDING });
-
+      usage: GPUTextureUsage.STORAGE_BINDING
+    });
   }
 
   /** Return an arbitrarily-configured GPUTexture with the `RENDER_ATTACHMENT` usage from mismatched device. */
@@ -263,8 +269,8 @@ export class ValidationTest extends GPUTest {
       size: { width: 4, height: 4, depthOrArrayLayers: 1 },
       format: 'rgba8unorm',
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
-      sampleCount });
-
+      sampleCount
+    });
   }
 
   getDeviceMismatchedBindingResource(bindingType) {
@@ -293,14 +299,14 @@ export class ValidationTest extends GPUTest {
     switch (stage) {
       case 'VERTEX':
         return `
-          @stage(vertex) fn main() -> @builtin(position) vec4<f32> {
+          @vertex fn main() -> @builtin(position) vec4<f32> {
             return vec4<f32>();
           }
         `;
       case 'FRAGMENT':
-        return `@stage(fragment) fn main() {}`;
+        return `@fragment fn main() {}`;
       case 'COMPUTE':
-        return `@stage(compute) @workgroup_size(1) fn main() {}`;}
+        return `@compute @workgroup_size(1) fn main() {}`;}
 
   }
 
@@ -310,65 +316,134 @@ export class ValidationTest extends GPUTest {
   }
 
   /** Return a GPURenderPipeline with default options and no-op vertex and fragment shaders. */
-  createNoOpRenderPipeline() {
+  createNoOpRenderPipeline(
+  layout = 'auto')
+  {
     return this.device.createRenderPipeline({
+      layout,
       vertex: {
         module: this.device.createShaderModule({
-          code: this.getNoOpShaderCode('VERTEX') }),
-
-        entryPoint: 'main' },
-
+          code: this.getNoOpShaderCode('VERTEX')
+        }),
+        entryPoint: 'main'
+      },
       fragment: {
         module: this.device.createShaderModule({
-          code: this.getNoOpShaderCode('FRAGMENT') }),
-
+          code: this.getNoOpShaderCode('FRAGMENT')
+        }),
         entryPoint: 'main',
-        targets: [{ format: 'rgba8unorm', writeMask: 0 }] },
-
-      primitive: { topology: 'triangle-list' } });
-
+        targets: [{ format: 'rgba8unorm', writeMask: 0 }]
+      },
+      primitive: { topology: 'triangle-list' }
+    });
   }
 
   /** Return an invalid GPURenderPipeline. */
   createErrorRenderPipeline() {
     this.device.pushErrorScope('validation');
     const pipeline = this.device.createRenderPipeline({
+      layout: 'auto',
       vertex: {
         module: this.device.createShaderModule({
-          code: '' }),
-
-        entryPoint: '' } });
-
-
-    this.device.popErrorScope();
+          code: ''
+        }),
+        entryPoint: ''
+      }
+    });
+    void this.device.popErrorScope();
     return pipeline;
   }
 
   /** Return a GPUComputePipeline with a no-op shader. */
-  createNoOpComputePipeline(layout) {
+  createNoOpComputePipeline(
+  layout = 'auto')
+  {
     return this.device.createComputePipeline({
       layout,
       compute: {
         module: this.device.createShaderModule({
-          code: this.getNoOpShaderCode('COMPUTE') }),
-
-        entryPoint: 'main' } });
-
-
+          code: this.getNoOpShaderCode('COMPUTE')
+        }),
+        entryPoint: 'main'
+      }
+    });
   }
 
   /** Return an invalid GPUComputePipeline. */
   createErrorComputePipeline() {
     this.device.pushErrorScope('validation');
     const pipeline = this.device.createComputePipeline({
+      layout: 'auto',
       compute: {
         module: this.device.createShaderModule({
-          code: '' }),
-
-        entryPoint: '' } });
-
-
-    this.device.popErrorScope();
+          code: ''
+        }),
+        entryPoint: ''
+      }
+    });
+    void this.device.popErrorScope();
     return pipeline;
-  }}
+  }
+
+  /** Return an invalid GPUShaderModule. */
+  createInvalidShaderModule() {
+    this.device.pushErrorScope('validation');
+    const code = 'deadbeaf'; // Something make no sense
+    const shaderModule = this.device.createShaderModule({ code });
+    void this.device.popErrorScope();
+    return shaderModule;
+  }
+
+  /** Helper for testing createRenderPipeline(Async) validation */
+  doCreateRenderPipelineTest(
+  isAsync,
+  _success,
+  descriptor,
+  errorTypeName = 'GPUPipelineError')
+  {
+    if (isAsync) {
+      if (_success) {
+        this.shouldResolve(this.device.createRenderPipelineAsync(descriptor));
+      } else {
+        this.shouldReject(errorTypeName, this.device.createRenderPipelineAsync(descriptor));
+      }
+    } else {
+      if (errorTypeName === 'GPUPipelineError') {
+        this.expectValidationError(() => {
+          this.device.createRenderPipeline(descriptor);
+        }, !_success);
+      } else {
+        this.shouldThrow(_success ? false : errorTypeName, () => {
+          this.device.createRenderPipeline(descriptor);
+        });
+      }
+    }
+  }
+
+  /** Helper for testing createComputePipeline(Async) validation */
+  doCreateComputePipelineTest(
+  isAsync,
+  _success,
+  descriptor,
+  errorTypeName = 'GPUPipelineError')
+  {
+    if (isAsync) {
+      if (_success) {
+        this.shouldResolve(this.device.createComputePipelineAsync(descriptor));
+      } else {
+        this.shouldReject(errorTypeName, this.device.createComputePipelineAsync(descriptor));
+      }
+    } else {
+      if (errorTypeName === 'GPUPipelineError') {
+        this.expectValidationError(() => {
+          this.device.createComputePipeline(descriptor);
+        }, !_success);
+      } else {
+        this.shouldThrow(_success ? false : errorTypeName, () => {
+          this.device.createComputePipeline(descriptor);
+        });
+      }
+    }
+  }
+}
 //# sourceMappingURL=validation_test.js.map

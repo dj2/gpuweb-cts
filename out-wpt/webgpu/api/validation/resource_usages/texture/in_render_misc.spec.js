@@ -1,9 +1,7 @@
 /**
  * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
  **/ export const description = `
-TODO:
-- 2 views: upon the same subresource, or different subresources of the same texture
-    - texture usages in copies and in render pass
+Texture Usages Validation Tests on All Kinds of WebGPU Subresource Usage Scopes.
 `;
 import { makeTestGroup } from '../../../../../common/framework/test_group.js';
 import { unreachable } from '../../../../../common/util/util.js';
@@ -26,7 +24,6 @@ class F extends ValidationTest {
           format: 'rgba8unorm',
           viewDimension: '2d-array',
         };
-
         break;
       default:
         unreachable();
@@ -74,7 +71,7 @@ g.test('subresources,set_bind_group_on_same_index_color_texture')
       ])
       .combine('hasConflict', [true, false])
   )
-  .fn(async t => {
+  .fn(t => {
     const { useDifferentTextureAsTexture2, baseLayer2, view2Binding, hasConflict } = t.params;
 
     const texture0 = t.device.createTexture({
@@ -82,14 +79,12 @@ g.test('subresources,set_bind_group_on_same_index_color_texture')
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
       size: [kTextureSize, kTextureSize, kTextureLayers],
     });
-
     // We always bind the first layer of the texture to bindGroup0.
     const textureView0 = texture0.createView({
       dimension: '2d-array',
       baseArrayLayer: 0,
       arrayLayerCount: 1,
     });
-
     const bindGroup0 = t.createBindGroupForTest(textureView0, view2Binding, 'float');
 
     // In one renderPassEncoder it is an error to set both bindGroup0 and bindGroup1.
@@ -112,7 +107,6 @@ g.test('subresources,set_bind_group_on_same_index_color_texture')
       baseArrayLayer: baseLayer2,
       arrayLayerCount: kTextureLayers - baseLayer2,
     });
-
     // There should be no conflict between bindGroup0 and validBindGroup2.
     const validBindGroup2 = t.createBindGroupForTest(textureView2, view2Binding, 'float');
 
@@ -121,7 +115,6 @@ g.test('subresources,set_bind_group_on_same_index_color_texture')
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
       size: [kTextureSize, kTextureSize, 1],
     });
-
     const encoder = t.device.createCommandEncoder();
     const renderPassEncoder = encoder.beginRenderPass({
       colorAttachments: [
@@ -132,7 +125,6 @@ g.test('subresources,set_bind_group_on_same_index_color_texture')
         },
       ],
     });
-
     renderPassEncoder.setBindGroup(0, bindGroup0);
     renderPassEncoder.setBindGroup(1, bindGroup1);
     renderPassEncoder.setBindGroup(1, validBindGroup2);
@@ -155,7 +147,7 @@ g.test('subresources,set_bind_group_on_same_index_depth_stencil_texture')
       .combine('bindAspect', ['depth-only', 'stencil-only'])
       .combine('depthStencilReadOnly', [true, false])
   )
-  .fn(async t => {
+  .fn(t => {
     const { bindAspect, depthStencilReadOnly } = t.params;
     const depthStencilTexture = t.device.createTexture({
       format: 'depth24plus-stencil8',
@@ -168,7 +160,6 @@ g.test('subresources,set_bind_group_on_same_index_depth_stencil_texture')
         dimension: '2d-array',
         aspect: bindAspect,
       }),
-
       'texture',
       bindAspect === 'depth-only' ? 'depth' : 'uint'
     );
@@ -178,12 +169,10 @@ g.test('subresources,set_bind_group_on_same_index_depth_stencil_texture')
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
       size: [kTextureSize, kTextureSize, 1],
     });
-
     const validBindGroup = t.createBindGroupForTest(
       colorTexture.createView({
         dimension: '2d-array',
       }),
-
       'texture',
       'float'
     );
@@ -197,7 +186,6 @@ g.test('subresources,set_bind_group_on_same_index_depth_stencil_texture')
         stencilReadOnly: depthStencilReadOnly,
       },
     });
-
     renderPassEncoder.setBindGroup(0, conflictedToNonReadOnlyAttachmentBindGroup);
     renderPassEncoder.setBindGroup(0, validBindGroup);
     renderPassEncoder.end();
@@ -215,7 +203,7 @@ g.test('subresources,set_unused_bind_group')
   scope can only be a compatible usage list.`
   )
   .params(u => u.combine('inRenderPass', [true, false]).combine('hasConflict', [true, false]))
-  .fn(async t => {
+  .fn(t => {
     const { inRenderPass, hasConflict } = t.params;
 
     const texture0 = t.device.createTexture({
@@ -223,14 +211,12 @@ g.test('subresources,set_unused_bind_group')
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
       size: [kTextureSize, kTextureSize, kTextureLayers],
     });
-
     // We always bind the first layer of the texture to bindGroup0.
     const textureView0 = texture0.createView({
       dimension: '2d-array',
       baseArrayLayer: 0,
       arrayLayerCount: 1,
     });
-
     const visibility = inRenderPass ? GPUShaderStage.FRAGMENT : GPUShaderStage.COMPUTE;
     // bindGroup0 is used by the pipelines, and bindGroup1 is not used by the pipelines.
     const textureUsage0 = inRenderPass ? 'texture' : 'storage';
@@ -244,11 +230,9 @@ g.test('subresources,set_unused_bind_group')
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
       size: [kTextureSize, kTextureSize, 1],
     });
-
     const pipelineLayout = t.device.createPipelineLayout({
       bindGroupLayouts: [t.createBindGroupLayoutForTest(textureUsage0, 'float', visibility)],
     });
-
     if (inRenderPass) {
       const renderPipeline = t.device.createRenderPipeline({
         layout: pipelineLayout,
@@ -256,20 +240,17 @@ g.test('subresources,set_unused_bind_group')
           module: t.device.createShaderModule({
             code: t.getNoOpShaderCode('VERTEX'),
           }),
-
           entryPoint: 'main',
         },
-
         fragment: {
           module: t.device.createShaderModule({
             code: `
               @group(0) @binding(0) var texture0 : texture_2d_array<f32>;
-              @stage(fragment) fn main()
+              @fragment fn main()
                 -> @location(0) vec4<f32> {
                   return textureLoad(texture0, vec2<i32>(), 0, 0);
               }`,
           }),
-
           entryPoint: 'main',
           targets: [{ format: 'rgba8unorm' }],
         },
@@ -284,7 +265,6 @@ g.test('subresources,set_unused_bind_group')
           },
         ],
       });
-
       renderPassEncoder.setBindGroup(0, bindGroup0);
       renderPassEncoder.setBindGroup(1, bindGroup1);
       renderPassEncoder.setPipeline(renderPipeline);
@@ -297,21 +277,19 @@ g.test('subresources,set_unused_bind_group')
           module: t.device.createShaderModule({
             code: `
             @group(0) @binding(0) var texture0 : texture_storage_2d_array<rgba8unorm, write>;
-            @stage(compute) @workgroup_size(1)
+            @compute @workgroup_size(1)
             fn main() {
               textureStore(texture0, vec2<i32>(), 0, vec4<f32>());
             }`,
           }),
-
           entryPoint: 'main',
         },
       });
-
       const computePassEncoder = encoder.beginComputePass();
       computePassEncoder.setBindGroup(0, bindGroup0);
       computePassEncoder.setBindGroup(1, bindGroup1);
       computePassEncoder.setPipeline(computePipeline);
-      computePassEncoder.dispatch(1);
+      computePassEncoder.dispatchWorkgroups(1);
       computePassEncoder.end();
     }
 
@@ -330,4 +308,96 @@ g.test('subresources,set_unused_bind_group')
     t.expectValidationError(() => {
       encoder.finish();
     }, !success);
+  });
+
+g.test('subresources,texture_usages_in_copy_and_render_pass')
+  .desc(
+    `
+  Test that using one texture subresource in a render pass encoder and a copy command is always
+  allowed as WebGPU SPEC (chapter 3.4.5) defines that out of any pass encoder, each command always
+  belongs to one usage scope.`
+  )
+  .params(u =>
+    u
+      .combine('usage0', ['copy-src', 'copy-dst', 'texture', 'storage', 'color-attachment'])
+      .combine('usage1', ['copy-src', 'copy-dst', 'texture', 'storage', 'color-attachment'])
+      .filter(
+        ({ usage0, usage1 }) =>
+          usage0 === 'copy-src' ||
+          usage0 === 'copy-dst' ||
+          usage1 === 'copy-src' ||
+          usage1 === 'copy-dst'
+      )
+  )
+  .fn(t => {
+    const { usage0, usage1 } = t.params;
+
+    const texture = t.device.createTexture({
+      format: 'rgba8unorm',
+      usage:
+        GPUTextureUsage.COPY_SRC |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.STORAGE_BINDING |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+      size: [kTextureSize, kTextureSize, 1],
+    });
+
+    const UseTextureOnCommandEncoder = (texture, usage, encoder) => {
+      switch (usage) {
+        case 'copy-src': {
+          const buffer = t.createBufferWithState('valid', {
+            size: 4,
+            usage: GPUBufferUsage.COPY_DST,
+          });
+          encoder.copyTextureToBuffer({ texture }, { buffer }, [1, 1, 1]);
+          break;
+        }
+        case 'copy-dst': {
+          const buffer = t.createBufferWithState('valid', {
+            size: 4,
+            usage: GPUBufferUsage.COPY_SRC,
+          });
+          encoder.copyBufferToTexture({ buffer }, { texture }, [1, 1, 1]);
+          break;
+        }
+        case 'color-attachment': {
+          const renderPassEncoder = encoder.beginRenderPass({
+            colorAttachments: [{ view: texture.createView(), loadOp: 'load', storeOp: 'store' }],
+          });
+          renderPassEncoder.end();
+          break;
+        }
+        case 'texture':
+        case 'storage': {
+          const colorTexture = t.device.createTexture({
+            format: 'rgba8unorm',
+            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+            size: [kTextureSize, kTextureSize, 1],
+          });
+          const renderPassEncoder = encoder.beginRenderPass({
+            colorAttachments: [
+              { view: colorTexture.createView(), loadOp: 'load', storeOp: 'store' },
+            ],
+          });
+          const bindGroup = t.createBindGroupForTest(
+            texture.createView({
+              dimension: '2d-array',
+            }),
+            usage,
+            'float'
+          );
+
+          renderPassEncoder.setBindGroup(0, bindGroup);
+          renderPassEncoder.end();
+          break;
+        }
+      }
+    };
+    const encoder = t.device.createCommandEncoder();
+    UseTextureOnCommandEncoder(texture, usage0, encoder);
+    UseTextureOnCommandEncoder(texture, usage1, encoder);
+    t.expectValidationError(() => {
+      encoder.finish();
+    }, false);
   });

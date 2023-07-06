@@ -1,7 +1,7 @@
 /**
  * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
  **/ import { assert, memcpy } from '../../../common/util/util.js';
-import { kTextureFormatInfo } from '../../capability_info.js';
+import { kTextureFormatInfo } from '../../format_info.js';
 import { reifyExtent3D, reifyOrigin3D } from '../unions.js';
 
 import { kTexelRepresentationInfo, makeClampToRange } from './texel_data.js';
@@ -52,10 +52,10 @@ export class TexelView {
         coords.x >= origin.x &&
           coords.y >= origin.y &&
           coords.z >= origin.z &&
-          coords.x < size.width &&
-          coords.y < size.height &&
-          coords.z < size.depthOrArrayLayers,
-        'coordinate out of bounds'
+          coords.x < origin.x + size.width &&
+          coords.y < origin.y + size.height &&
+          coords.z < origin.z + size.depthOrArrayLayers,
+        () => `coordinate (${coords.x},${coords.y},${coords.z}) out of bounds`
       );
 
       const imageOffsetInRows = (coords.z - origin.z) * rowsPerImage;

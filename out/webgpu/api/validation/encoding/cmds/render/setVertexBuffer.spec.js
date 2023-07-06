@@ -29,8 +29,8 @@ fn((t) => {
   const { encoderType, slot } = t.params;
   const vertexBuffer = t.createBufferWithState('valid', {
     size: 16,
-    usage: GPUBufferUsage.VERTEX });
-
+    usage: GPUBufferUsage.VERTEX
+  });
 
   const { encoder, validateFinish } = t.createEncoder(encoderType);
   encoder.setVertexBuffer(slot, vertexBuffer);
@@ -48,8 +48,8 @@ fn((t) => {
   const { encoderType, state } = t.params;
   const vertexBuffer = t.createBufferWithState(state, {
     size: 16,
-    usage: GPUBufferUsage.VERTEX });
-
+    usage: GPUBufferUsage.VERTEX
+  });
 
   const { encoder, validateFinishAndSubmitGivenState } = t.createEncoder(encoderType);
   encoder.setVertexBuffer(0, vertexBuffer);
@@ -59,19 +59,17 @@ fn((t) => {
 g.test('vertex_buffer,device_mismatch').
 desc('Tests setVertexBuffer cannot be called with a vertex buffer created from another device').
 paramsSubcasesOnly(kRenderEncodeTypeParams.combine('mismatched', [true, false])).
-fn(async (t) => {
+beforeAllSubcases((t) => {
+  t.selectMismatchedDeviceOrSkipTestCase(undefined);
+}).
+fn((t) => {
   const { encoderType, mismatched } = t.params;
+  const sourceDevice = mismatched ? t.mismatchedDevice : t.device;
 
-  if (mismatched) {
-    await t.selectMismatchedDeviceOrSkipTestCase(undefined);
-  }
-
-  const device = mismatched ? t.mismatchedDevice : t.device;
-
-  const vertexBuffer = device.createBuffer({
+  const vertexBuffer = sourceDevice.createBuffer({
     size: 16,
-    usage: GPUBufferUsage.VERTEX });
-
+    usage: GPUBufferUsage.VERTEX
+  });
   t.trackForCleanup(vertexBuffer);
 
   const { encoder, validateFinish } = t.createEncoder(encoderType);
@@ -96,8 +94,8 @@ fn((t) => {
   const { encoderType, usage } = t.params;
   const vertexBuffer = t.device.createBuffer({
     size: 16,
-    usage });
-
+    usage
+  });
 
   const { encoder, validateFinish } = t.createEncoder(encoderType);
   encoder.setVertexBuffer(0, vertexBuffer);
@@ -115,8 +113,8 @@ fn((t) => {
   const { encoderType, offset } = t.params;
   const vertexBuffer = t.device.createBuffer({
     size: 16,
-    usage: GPUBufferUsage.VERTEX });
-
+    usage: GPUBufferUsage.VERTEX
+  });
 
   const { encoder, validateFinish: finish } = t.createEncoder(encoderType);
   encoder.setVertexBuffer(0, vertexBuffer, offset);
@@ -134,8 +132,8 @@ fn((t) => {
   const { encoderType, offset, size, _valid } = t.params;
   const vertexBuffer = t.device.createBuffer({
     size: 256,
-    usage: GPUBufferUsage.VERTEX });
-
+    usage: GPUBufferUsage.VERTEX
+  });
 
   const { encoder, validateFinish } = t.createEncoder(encoderType);
   encoder.setVertexBuffer(0, vertexBuffer, offset, size);

@@ -1,6 +1,7 @@
 /**
 * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
-**/import { assert } from '../util/util.js';
+**/import { globalTestConfig } from '../framework/test_config.js';import { assert, now } from '../util/util.js';
+
 
 
 import { compareQueries, Ordering } from './query/compare.js';
@@ -75,6 +76,7 @@ import { StacklessError } from './util.js';
 
 
 
+
 export class TestTree {
   /**
    * The `queryToLoad` that this test tree was created for.
@@ -106,7 +108,7 @@ export class TestTree {
   iterateCollapsedNodes({
     includeIntermediateNodes = false,
     includeEmptySubtrees = false,
-    alwaysExpandThroughLevel })
+    alwaysExpandThroughLevel
 
 
 
@@ -114,13 +116,13 @@ export class TestTree {
 
 
 
-  {
+  }) {
     const expandThroughLevel = Math.max(this.forQuery.level, alwaysExpandThroughLevel);
     return TestTree.iterateSubtreeNodes(this.root, {
       includeIntermediateNodes,
       includeEmptySubtrees,
-      expandThroughLevel });
-
+      expandThroughLevel
+    });
   }
 
   iterateLeaves() {
@@ -219,8 +221,8 @@ export class TestTree {
       }
     }
     return s;
-  }}
-
+  }
+}
 
 // MAINTENANCE_TODO: Consider having subqueriesToExpand actually impact the depth-order of params
 // in the tree.
@@ -252,6 +254,9 @@ subqueriesToExpand)
   let foundCase = false;
   // L0 is suite:*
   const subtreeL0 = makeTreeForSuite(suite, isCollapsible);
+
+  const imports_start = now();
+  const pEntriesWithImports = []; // Promise<entry with importedSpec>[]
   for (const entry of specs) {
     if (entry.file.length === 0 && 'readme' in entry) {
       // Suite-level readme.
@@ -268,6 +273,34 @@ subqueriesToExpand)
       }
     }
 
+    // We're going to be fetching+importing a bunch of things, so do it in async.
+    const pEntryWithImport = (async () => {
+      if ('readme' in entry) {
+        return entry;
+      } else {
+        return {
+          ...entry,
+          importedSpec: await loader.importSpecFile(queryToLoad.suite, entry.file)
+        };
+      }
+    })();
+
+    const kForceSerialImporting = false;
+    if (kForceSerialImporting) {
+      await pEntryWithImport;
+    }
+    pEntriesWithImports.push(pEntryWithImport);
+  }
+
+  const entriesWithImports = await Promise.all(pEntriesWithImports);
+  if (globalTestConfig.frameworkDebugLog) {
+    const imported_time = performance.now() - imports_start;
+    globalTestConfig.frameworkDebugLog(
+    `Imported importedSpecFiles[${entriesWithImports.length}] in ${imported_time}ms.`);
+
+  }
+
+  for (const entry of entriesWithImports) {
     if ('readme' in entry) {
       // Entry is a README that is an ancestor or descendant of the query.
       // (It's included for display in the standalone runner.)
@@ -283,9 +316,9 @@ subqueriesToExpand)
       setSubtreeDescriptionAndCountTODOs(readmeSubtree, entry.readme);
       continue;
     }
-    // Entry is a spec file.
 
-    const spec = await loader.importSpecFile(queryToLoad.suite, entry.file);
+    // Entry is a spec file.
+    const spec = entry.importedSpec;
     // subtreeL1 is suite:a,b:*
     const subtreeL1 = addSubtreeForFilePath(
     subtreeL0,
@@ -377,8 +410,8 @@ isCollapsible)
     readableRelativeName: suite + kBigSeparator,
     query,
     children: new Map(),
-    collapsible: isCollapsible(query) };
-
+    collapsible: isCollapsible(query)
+  };
 }
 
 function addSubtreeForDirPath(
@@ -396,8 +429,8 @@ isCollapsible)
       return {
         readableRelativeName: part + kPathSeparator + kWildcard,
         query,
-        collapsible: isCollapsible(query) };
-
+        collapsible: isCollapsible(query)
+      };
     });
   }
   return tree;
@@ -418,8 +451,8 @@ isCollapsible)
     return {
       readableRelativeName: file[file.length - 1] + kBigSeparator + kWildcard,
       query,
-      collapsible: isCollapsible(query) };
-
+      collapsible: isCollapsible(query)
+    };
   });
   return subtree;
 }
@@ -444,8 +477,8 @@ isCollapsible)
       return {
         readableRelativeName: part + kPathSeparator + kWildcard,
         query,
-        collapsible: isCollapsible(query) };
-
+        collapsible: isCollapsible(query)
+      };
     });
   }
   // This goes from that -> suite:a,b:c,d:*
@@ -462,8 +495,8 @@ isCollapsible)
       kWildcard,
       query,
       testCreationStack,
-      collapsible: isCollapsible(query) };
-
+      collapsible: isCollapsible(query)
+    };
   });
 }
 
@@ -492,8 +525,8 @@ checkCollapsible)
       return {
         readableRelativeName: name + kParamSeparator + kWildcard,
         query: subquery,
-        collapsible: checkCollapsible(subquery) };
-
+        collapsible: checkCollapsible(subquery)
+      };
     });
   }
 
@@ -526,13 +559,16 @@ createSubtree)
 }
 
 function insertLeaf(parent, query, t) {
-  const key = '';
   const leaf = {
     readableRelativeName: readableNameForCase(query),
     query,
-    run: (rec, expectations) => t.run(rec, query, expectations || []) };
+    run: (rec, expectations) => t.run(rec, query, expectations || []),
+    isUnimplemented: t.isUnimplemented
+  };
 
-  assert(!parent.children.has(key));
+  // This is a leaf (e.g. s:f:t:x=1;* -> s:f:t:x=1). The key is always ''.
+  const key = '';
+  assert(!parent.children.has(key), `Duplicate testcase: ${query}`);
   parent.children.set(key, leaf);
 }
 

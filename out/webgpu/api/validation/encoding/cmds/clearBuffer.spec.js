@@ -23,21 +23,21 @@ class F extends ValidationTest {
     this.expectValidationError(() => {
       commandEncoder.finish();
     }, !isSuccess);
-  }}
-
+  }
+}
 
 export const g = makeTestGroup(F);
 
 g.test('buffer_state').
 desc(`Test that clearing an invalid or destroyed buffer fails.`).
 params((u) => u.combine('bufferState', kResourceStates)).
-fn(async (t) => {
+fn((t) => {
   const { bufferState } = t.params;
 
   const buffer = t.createBufferWithState(bufferState, {
     size: 8,
-    usage: GPUBufferUsage.COPY_DST });
-
+    usage: GPUBufferUsage.COPY_DST
+  });
 
   const commandEncoder = t.device.createCommandEncoder();
   commandEncoder.clearBuffer(buffer, 0, 8);
@@ -57,28 +57,26 @@ fn(async (t) => {
 g.test('buffer,device_mismatch').
 desc(`Tests clearBuffer cannot be called with buffer created from another device.`).
 paramsSubcasesOnly((u) => u.combine('mismatched', [true, false])).
-fn(async (t) => {
+beforeAllSubcases((t) => {
+  t.selectMismatchedDeviceOrSkipTestCase(undefined);
+}).
+fn((t) => {
   const { mismatched } = t.params;
-
-  if (mismatched) {
-    await t.selectMismatchedDeviceOrSkipTestCase(undefined);
-  }
-
-  const device = mismatched ? t.mismatchedDevice : t.device;
+  const sourceDevice = mismatched ? t.mismatchedDevice : t.device;
   const size = 8;
 
-  const buffer = device.createBuffer({
+  const buffer = sourceDevice.createBuffer({
     size,
-    usage: GPUBufferUsage.COPY_DST });
-
+    usage: GPUBufferUsage.COPY_DST
+  });
   t.trackForCleanup(buffer);
 
   t.TestClearBuffer({
     buffer,
     offset: 0,
     size,
-    isSuccess: !mismatched });
-
+    isSuccess: !mismatched
+  });
 });
 
 g.test('default_args').
@@ -88,20 +86,20 @@ paramsSubcasesOnly([
 { offset: 4, size: undefined },
 { offset: undefined, size: 8 }]).
 
-fn(async (t) => {
+fn((t) => {
   const { offset, size } = t.params;
 
   const buffer = t.device.createBuffer({
     size: 16,
-    usage: GPUBufferUsage.COPY_DST });
-
+    usage: GPUBufferUsage.COPY_DST
+  });
 
   t.TestClearBuffer({
     buffer,
     offset,
     size,
-    isSuccess: true });
-
+    isSuccess: true
+  });
 });
 
 g.test('buffer_usage').
@@ -110,20 +108,20 @@ paramsSubcasesOnly((u) =>
 u //
 .combine('usage', kBufferUsages)).
 
-fn(async (t) => {
+fn((t) => {
   const { usage } = t.params;
 
   const buffer = t.device.createBuffer({
     size: 16,
-    usage });
-
+    usage
+  });
 
   t.TestClearBuffer({
     buffer,
     offset: 0,
     size: 16,
-    isSuccess: usage === GPUBufferUsage.COPY_DST });
-
+    isSuccess: usage === GPUBufferUsage.COPY_DST
+  });
 });
 
 g.test('size_alignment').
@@ -145,20 +143,20 @@ paramsSubcasesOnly([
 { size: 20, _isSuccess: false },
 { size: undefined, _isSuccess: true }]).
 
-fn(async (t) => {
+fn((t) => {
   const { size, _isSuccess: isSuccess } = t.params;
 
   const buffer = t.device.createBuffer({
     size: 16,
-    usage: GPUBufferUsage.COPY_DST });
-
+    usage: GPUBufferUsage.COPY_DST
+  });
 
   t.TestClearBuffer({
     buffer,
     offset: 0,
     size,
-    isSuccess });
-
+    isSuccess
+  });
 });
 
 g.test('offset_alignment').
@@ -179,44 +177,44 @@ paramsSubcasesOnly([
 { offset: 20, _isSuccess: false },
 { offset: undefined, _isSuccess: true }]).
 
-fn(async (t) => {
+fn((t) => {
   const { offset, _isSuccess: isSuccess } = t.params;
 
   const buffer = t.device.createBuffer({
     size: 16,
-    usage: GPUBufferUsage.COPY_DST });
-
+    usage: GPUBufferUsage.COPY_DST
+  });
 
   t.TestClearBuffer({
     buffer,
     offset,
     size: 8,
-    isSuccess });
-
+    isSuccess
+  });
 });
 
 g.test('overflow').
-desc(`Test that clears which may cause arthimetic overflows are invalid.`).
+desc(`Test that clears which may cause arithmetic overflows are invalid.`).
 paramsSubcasesOnly([
 { offset: 0, size: kMaxSafeMultipleOf8 },
 { offset: 16, size: kMaxSafeMultipleOf8 },
 { offset: kMaxSafeMultipleOf8, size: 16 },
 { offset: kMaxSafeMultipleOf8, size: kMaxSafeMultipleOf8 }]).
 
-fn(async (t) => {
+fn((t) => {
   const { offset, size } = t.params;
 
   const buffer = t.device.createBuffer({
     size: 16,
-    usage: GPUBufferUsage.COPY_DST });
-
+    usage: GPUBufferUsage.COPY_DST
+  });
 
   t.TestClearBuffer({
     buffer,
     offset,
     size,
-    isSuccess: false });
-
+    isSuccess: false
+  });
 });
 
 g.test('out_of_bounds').
@@ -231,19 +229,19 @@ paramsSubcasesOnly([
 { offset: 20, size: 16 },
 { offset: 20, size: 12, _isSuccess: true }]).
 
-fn(async (t) => {
+fn((t) => {
   const { offset, size, _isSuccess = false } = t.params;
 
   const buffer = t.device.createBuffer({
     size: 32,
-    usage: GPUBufferUsage.COPY_DST });
-
+    usage: GPUBufferUsage.COPY_DST
+  });
 
   t.TestClearBuffer({
     buffer,
     offset,
     size,
-    isSuccess: _isSuccess });
-
+    isSuccess: _isSuccess
+  });
 });
 //# sourceMappingURL=clearBuffer.spec.js.map

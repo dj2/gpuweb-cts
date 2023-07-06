@@ -20,10 +20,10 @@ export class ProgrammableStateTest extends GPUTest {
         {
           binding: 0,
           visibility: GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT,
-          buffer: { type } }] }));
+          buffer: { type }
+        }]
 
-
-
+      }));
 
     }
     return this.commonBindGroupLayouts.get(type);
@@ -40,8 +40,8 @@ export class ProgrammableStateTest extends GPUTest {
   createBindGroup(buffer, type) {
     return this.device.createBindGroup({
       layout: this.getBindGroupLayout(type),
-      entries: [{ binding: 0, resource: { buffer } }] });
-
+      entries: [{ binding: 0, resource: { buffer } }]
+    });
   }
 
   setBindGroup(
@@ -69,7 +69,7 @@ export class ProgrammableStateTest extends GPUTest {
           @group(${groups.b}) @binding(0) var<storage> b : Data;
           @group(${groups.out}) @binding(0) var<storage, read_write> out : Data;
 
-          @stage(compute) @workgroup_size(1) fn main() {
+          @compute @workgroup_size(1) fn main() {
             out.value = ${algorithm};
             return;
           }
@@ -77,21 +77,21 @@ export class ProgrammableStateTest extends GPUTest {
 
           return this.device.createComputePipeline({
             layout: this.device.createPipelineLayout({
-              bindGroupLayouts: this.getBindGroupLayouts(groups) }),
-
+              bindGroupLayouts: this.getBindGroupLayouts(groups)
+            }),
             compute: {
               module: this.device.createShaderModule({
-                code: wgsl }),
-
-              entryPoint: 'main' } });
-
-
+                code: wgsl
+              }),
+              entryPoint: 'main'
+            }
+          });
         }
       case 'render pass':
       case 'render bundle':{
           const wgslShaders = {
             vertex: `
-            @stage(vertex) fn vert_main() -> @builtin(position) vec4<f32> {
+            @vertex fn vert_main() -> @builtin(position) vec4<f32> {
               return vec4<f32>(0.5, 0.5, 0.0, 1.0);
             }
           `,
@@ -105,32 +105,32 @@ export class ProgrammableStateTest extends GPUTest {
             @group(${groups.b}) @binding(0) var<storage> b : Data;
             @group(${groups.out}) @binding(0) var<storage, read_write> out : Data;
 
-            @stage(fragment) fn frag_main() -> @location(0) vec4<f32> {
+            @fragment fn frag_main() -> @location(0) vec4<f32> {
               out.value = ${algorithm};
               return vec4<f32>(1.0, 0.0, 0.0, 1.0);
             }
-          ` };
-
+          `
+          };
 
           return this.device.createRenderPipeline({
             layout: this.device.createPipelineLayout({
-              bindGroupLayouts: this.getBindGroupLayouts(groups) }),
-
+              bindGroupLayouts: this.getBindGroupLayouts(groups)
+            }),
             vertex: {
               module: this.device.createShaderModule({
-                code: wgslShaders.vertex }),
-
-              entryPoint: 'vert_main' },
-
+                code: wgslShaders.vertex
+              }),
+              entryPoint: 'vert_main'
+            },
             fragment: {
               module: this.device.createShaderModule({
-                code: wgslShaders.fragment }),
-
+                code: wgslShaders.fragment
+              }),
               entryPoint: 'frag_main',
-              targets: [{ format: 'rgba8unorm' }] },
-
-            primitive: { topology: 'point-list' } });
-
+              targets: [{ format: 'rgba8unorm' }]
+            },
+            primitive: { topology: 'point-list' }
+          });
         }
       default:
         unreachable();}
@@ -147,11 +147,12 @@ export class ProgrammableStateTest extends GPUTest {
 
   dispatchOrDraw(pass) {
     if (pass instanceof GPUComputePassEncoder) {
-      pass.dispatch(1);
+      pass.dispatchWorkgroups(1);
     } else if (pass instanceof GPURenderPassEncoder) {
       pass.draw(1);
     } else if (pass instanceof GPURenderBundleEncoder) {
       pass.draw(1);
     }
-  }}
+  }
+}
 //# sourceMappingURL=programmable_state_test.js.map

@@ -6,7 +6,7 @@ import {
 kEncodableTextureFormats,
 kTextureFormatInfo } from
 
-'../../capability_info.js';
+'../../format_info.js';
 import { GPUTest } from '../../gpu_test.js';
 
 import {
@@ -38,15 +38,15 @@ t)
   const texture = t.device.createTexture({
     format,
     size: [1, 1, 1],
-    usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING });
-
+    usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING
+  });
 
   t.device.queue.writeTexture(
   { texture },
   texelData,
   {
-    bytesPerRow: texelData.byteLength },
-
+    bytesPerRow: texelData.byteLength
+  },
   [1]);
 
 
@@ -56,11 +56,11 @@ t)
   @group(0) @binding(0) var tex : texture_2d<${shaderType}>;
 
   struct Output {
-    ${rep.componentOrder.map((C) => `result${C} : ${shaderType};`).join('\n')}
+    ${rep.componentOrder.map((C) => `result${C} : ${shaderType},`).join('\n')}
   };
   @group(0) @binding(1) var<storage, read_write> output : Output;
 
-  @stage(compute) @workgroup_size(1)
+  @compute @workgroup_size(1)
   fn main() {
       var texel : vec4<${shaderType}> = textureLoad(tex, vec2<i32>(0, 0), 0);
       ${rep.componentOrder.map((C) => `output.result${C} = texel.${C.toLowerCase()};`).join('\n')}
@@ -68,40 +68,41 @@ t)
   }`;
 
   const pipeline = t.device.createComputePipeline({
+    layout: 'auto',
     compute: {
       module: t.device.createShaderModule({
-        code: shader }),
-
-      entryPoint: 'main' } });
-
-
+        code: shader
+      }),
+      entryPoint: 'main'
+    }
+  });
 
   const outputBuffer = t.device.createBuffer({
     size: rep.componentOrder.length * 4,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
-
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+  });
 
   const bindGroup = t.device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
     entries: [
     {
       binding: 0,
-      resource: texture.createView() },
-
+      resource: texture.createView()
+    },
     {
       binding: 1,
       resource: {
-        buffer: outputBuffer } }] });
+        buffer: outputBuffer
+      }
+    }]
 
-
-
-
+  });
 
   const encoder = t.device.createCommandEncoder();
   const pass = encoder.beginComputePass();
   pass.setPipeline(pipeline);
   pass.setBindGroup(0, bindGroup);
-  pass.dispatch(1);
+  pass.dispatchWorkgroups(1);
   pass.end();
   t.device.queue.submit([encoder.finish()]);
 
@@ -128,8 +129,8 @@ fn)
     R: rep.componentInfo.R ? fn(rep.componentInfo.R.bitLength, 0) : undefined,
     G: rep.componentInfo.G ? fn(rep.componentInfo.G.bitLength, 1) : undefined,
     B: rep.componentInfo.B ? fn(rep.componentInfo.B.bitLength, 2) : undefined,
-    A: rep.componentInfo.A ? fn(rep.componentInfo.A.bitLength, 3) : undefined };
-
+    A: rep.componentInfo.A ? fn(rep.componentInfo.A.bitLength, 3) : undefined
+  };
 }
 
 g.test('unorm_texel_data_in_shader').
@@ -137,11 +138,8 @@ params((u) =>
 u.
 combine('format', kEncodableTextureFormats).
 filter(({ format }) => {
-  return (
-    kTextureFormatInfo[format].copyDst &&
-    kTextureFormatInfo[format].color &&
-    getSingleDataType(format) === 'unorm');
-
+  const info = kTextureFormatInfo[format];
+  return !!info.color && info.color.copyDst && getSingleDataType(format) === 'unorm';
 }).
 beginSubcases().
 expand('componentData', ({ format }) => {
@@ -162,6 +160,9 @@ expand('componentData', ({ format }) => {
 
 })).
 
+beforeAllSubcases((t) => {
+  t.skipIfTextureFormatNotSupported(t.params.format);
+}).
 fn(doTest);
 
 g.test('snorm_texel_data_in_shader').
@@ -169,11 +170,8 @@ params((u) =>
 u.
 combine('format', kEncodableTextureFormats).
 filter(({ format }) => {
-  return (
-    kTextureFormatInfo[format].copyDst &&
-    kTextureFormatInfo[format].color &&
-    getSingleDataType(format) === 'snorm');
-
+  const info = kTextureFormatInfo[format];
+  return !!info.color && info.color.copyDst && getSingleDataType(format) === 'snorm';
 }).
 beginSubcases().
 expand('componentData', ({ format }) => {
@@ -204,11 +202,8 @@ params((u) =>
 u.
 combine('format', kEncodableTextureFormats).
 filter(({ format }) => {
-  return (
-    kTextureFormatInfo[format].copyDst &&
-    kTextureFormatInfo[format].color &&
-    getSingleDataType(format) === 'uint');
-
+  const info = kTextureFormatInfo[format];
+  return !!info.color && info.color.copyDst && getSingleDataType(format) === 'uint';
 }).
 beginSubcases().
 expand('componentData', ({ format }) => {
@@ -236,11 +231,8 @@ params((u) =>
 u.
 combine('format', kEncodableTextureFormats).
 filter(({ format }) => {
-  return (
-    kTextureFormatInfo[format].copyDst &&
-    kTextureFormatInfo[format].color &&
-    getSingleDataType(format) === 'sint');
-
+  const info = kTextureFormatInfo[format];
+  return !!info.color && info.color.copyDst && getSingleDataType(format) === 'sint';
 }).
 beginSubcases().
 expand('componentData', ({ format }) => {
@@ -274,11 +266,8 @@ params((u) =>
 u.
 combine('format', kEncodableTextureFormats).
 filter(({ format }) => {
-  return (
-    kTextureFormatInfo[format].copyDst &&
-    kTextureFormatInfo[format].color &&
-    getSingleDataType(format) === 'float');
-
+  const info = kTextureFormatInfo[format];
+  return !!info.color && info.color.copyDst && getSingleDataType(format) === 'float';
 }).
 beginSubcases().
 expand('componentData', ({ format }) => {
@@ -314,11 +303,8 @@ params((u) =>
 u.
 combine('format', kEncodableTextureFormats).
 filter(({ format }) => {
-  return (
-    kTextureFormatInfo[format].copyDst &&
-    kTextureFormatInfo[format].color &&
-    getSingleDataType(format) === 'ufloat');
-
+  const info = kTextureFormatInfo[format];
+  return !!info.color && info.color.copyDst && getSingleDataType(format) === 'ufloat';
 }).
 beginSubcases().
 expand('componentData', ({ format }) => {

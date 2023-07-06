@@ -29,12 +29,14 @@ and myexpectations.txt is a file containing a list of WPT paths to suppress, e.g
 }
 
 if (process.argv.length !== 4 && process.argv.length !== 7 && process.argv.length !== 8) {
-  printUsageAndExit(0);
+  console.error('incorrect number of arguments!');
+  printUsageAndExit(1);
 }
 
+// prettier-ignore
 const [
-  ,
-  ,
+  , // `node` binary
+  , // this script
   outFile,
   templateFile,
   argsPrefixesFile,
@@ -44,7 +46,7 @@ const [
 ] = process.argv;
 
 (async () => {
-  let argsPrefixes = [''];
+  let argsPrefixes = ['?q='];
   let expectationLines = new Set<string>();
 
   if (process.argv.length >= 7) {
@@ -80,7 +82,7 @@ const [
   const lines: Array<string | undefined> = [];
   for (const prefix of argsPrefixes) {
     const rootQuery = new TestQueryMultiFile(suite, []);
-    const tree = await loader.loadTree(rootQuery, expectations.get(prefix)!);
+    const tree = await loader.loadTree(rootQuery, expectations.get(prefix));
 
     lines.push(undefined); // output blank line between prefixes
     const alwaysExpandThroughLevel = 2; // expand to, at minimum, every test.

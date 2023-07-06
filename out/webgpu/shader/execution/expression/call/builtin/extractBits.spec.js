@@ -1,7 +1,36 @@
 /**
 * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
 **/export const description = `
-Execution Tests for the 'extractBits' builtin function
+Execution tests for the 'extractBits' builtin function
+
+T is u32 or vecN<u32>
+@const fn extractBits(e: T, offset: u32, count: u32) -> T
+Reads bits from an integer, without sign extension.
+
+When T is a scalar type, then:
+  w is the bit width of T
+  o = min(offset,w)
+  c = min(count, w - o)
+
+The result is 0 if c is 0.
+Otherwise, bits 0..c-1 of the result are copied from bits o..o+c-1 of e.
+Other bits of the result are 0.
+Component-wise when T is a vector.
+
+
+T is i32 or vecN<i32>
+@const fn extractBits(e: T, offset: u32, count: u32) -> T
+Reads bits from an integer, with sign extension.
+
+When T is a scalar type, then:
+  w is the bit width of T
+  o = min(offset,w)
+  c = min(count, w - o)
+
+The result is 0 if c is 0.
+Otherwise, bits 0..c-1 of the result are copied from bits o..o+c-1 of e.
+Other bits of the result are the same as bit c-1 of the result.
+Component-wise when T is a vector.
 `;import { makeTestGroup } from '../../../../../../common/framework/test_group.js';
 import { GPUTest } from '../../../../../gpu_test.js';
 import {
@@ -15,41 +44,16 @@ vec3,
 vec4,
 TypeVec } from
 '../../../../../util/conversion.js';
-import { run } from '../../expression.js';
+import { allInputSources, run } from '../../expression.js';
 
 import { builtin } from './builtin.js';
 
 export const g = makeTestGroup(GPUTest);
 
 g.test('u32').
-uniqueId('xxxxxxxxxxxxxxxx').
-specURL('https://www.w3.org/TR/2021/WD-WGSL-20210929/#integer-builtin-functions').
-desc(
-`
-extractBits:
-T is u32 or vecN<u32> extractBits(e: T, offset: u32, count: u32) -> T
-
-Reads bits from an integer, without sign extension.
-
-When T is a scalar type, then:
-
-* w is the bit width of T
-* o = min(offset,w)
-* c = min(count, w - o)
-* The result is 0 if c is 0.
-* Otherwise, bits 0..c-1 of the result are copied from bits o..o+c-1 of e. Other bits of the result are 0.
-
-Component-wise when T is a vector.
-
-Please read the following guidelines before contributing:
-https://github.com/gpuweb/cts/blob/main/docs/plan_autogen.md
-`).
-
-params((u) =>
-u.
-combine('storageClass', ['uniform', 'storage_r', 'storage_rw']).
-combine('width', [1, 2, 3, 4])).
-
+specURL('https://www.w3.org/TR/WGSL/#integer-builtin-functions').
+desc(`u32 tests`).
+params((u) => u.combine('inputSource', allInputSources).combine('width', [1, 2, 3, 4])).
 fn(async (t) => {
   const cfg = t.params;
 
@@ -83,7 +87,7 @@ fn(async (t) => {
   0b00000000001010101010100000000000);
 
 
-  run(t, builtin('extractBits'), [T, TypeU32, TypeU32], T, cfg, [
+  const cases = [
   { input: [all_0, u32(0), u32(32)], expected: all_0 },
   { input: [all_0, u32(1), u32(10)], expected: all_0 },
   { input: [all_0, u32(2), u32(5)], expected: all_0 },
@@ -93,12 +97,12 @@ fn(async (t) => {
   { input: [all_1, u32(0), u32(32)], expected: all_1 },
   {
     input: [all_1, u32(1), u32(10)],
-    expected: V(0b00000000000000000000001111111111) },
-
+    expected: V(0b00000000000000000000001111111111)
+  },
   {
     input: [all_1, u32(2), u32(5)],
-    expected: V(0b00000000000000000000000000011111) },
-
+    expected: V(0b00000000000000000000000000011111)
+  },
   { input: [all_1, u32(0), u32(1)], expected: low_1 },
   { input: [all_1, u32(31), u32(1)], expected: low_1 },
 
@@ -110,109 +114,92 @@ fn(async (t) => {
     0b00000000000011101110000000000000,
     0b01111111111100000001111111111111,
     0b00000000001010101010100000000000,
-    0b00000000000101010101010000000000) },
+    0b00000000000101010101010000000000)
 
-
+  },
   {
     input: [pattern, u32(14), u32(18)],
     expected: V(
     0b00000000000000000000000001110111,
     0b00000000000000111111111110000000,
     0b00000000000000000000000101010101,
-    0b00000000000000000000000010101010) },
+    0b00000000000000000000000010101010)
 
-
+  },
   {
     input: [pattern, u32(14), u32(7)],
     expected: V(
     0b00000000000000000000000001110111,
     0b00000000000000000000000000000000,
     0b00000000000000000000000001010101,
-    0b00000000000000000000000000101010) },
+    0b00000000000000000000000000101010)
 
-
+  },
   {
     input: [pattern, u32(14), u32(4)],
     expected: V(
     0b00000000000000000000000000000111,
     0b00000000000000000000000000000000,
     0b00000000000000000000000000000101,
-    0b00000000000000000000000000001010) },
+    0b00000000000000000000000000001010)
 
-
+  },
   {
     input: [pattern, u32(14), u32(3)],
     expected: V(
     0b00000000000000000000000000000111,
     0b00000000000000000000000000000000,
     0b00000000000000000000000000000101,
-    0b00000000000000000000000000000010) },
+    0b00000000000000000000000000000010)
 
-
+  },
   {
     input: [pattern, u32(18), u32(3)],
     expected: V(
     0b00000000000000000000000000000111,
     0b00000000000000000000000000000000,
     0b00000000000000000000000000000101,
-    0b00000000000000000000000000000010) },
+    0b00000000000000000000000000000010)
 
-
+  },
   { input: [low_1, u32(0), u32(1)], expected: low_1 },
   { input: [high_1, u32(31), u32(1)], expected: low_1 },
-
-  // End overflow
-  { input: [low_1, u32(0), u32(99)], expected: low_1 },
-  { input: [high_1, u32(31), u32(99)], expected: low_1 },
-  { input: [pattern, u32(0), u32(99)], expected: pattern },
-  {
-    input: [pattern, u32(14), u32(99)],
-    expected: V(
-    0b00000000000000000000000001110111,
-    0b00000000000000111111111110000000,
-    0b00000000000000000000000101010101,
-    0b00000000000000000000000010101010) },
-
-
 
   // Zero count
   { input: [all_1, u32(0), u32(0)], expected: all_0 },
   { input: [all_0, u32(0), u32(0)], expected: all_0 },
   { input: [low_1, u32(0), u32(0)], expected: all_0 },
   { input: [high_1, u32(31), u32(0)], expected: all_0 },
-  { input: [pattern, u32(0), u32(0)], expected: all_0 }]);
+  { input: [pattern, u32(0), u32(0)], expected: all_0 }];
 
+
+  if (t.params.inputSource !== 'const') {
+    cases.push(
+    ...[
+    // End overflow
+    { input: [low_1, u32(0), u32(99)], expected: low_1 },
+    { input: [high_1, u32(31), u32(99)], expected: low_1 },
+    { input: [pattern, u32(0), u32(99)], expected: pattern },
+    {
+      input: [pattern, u32(14), u32(99)],
+      expected: V(
+      0b00000000000000000000000001110111,
+      0b00000000000000111111111110000000,
+      0b00000000000000000000000101010101,
+      0b00000000000000000000000010101010)
+
+    }]);
+
+
+  }
+
+  await run(t, builtin('extractBits'), [T, TypeU32, TypeU32], T, cfg, cases);
 });
 
 g.test('i32').
-uniqueId('xxxxxxxxxxxxxxxx').
-specURL('https://www.w3.org/TR/2021/WD-WGSL-20210929/#integer-builtin-functions').
-desc(
-`
-extractBits:
-T is i32 or vecN<i32> extractBits(e: T, offset: u32, count: u32) -> T
-
-Reads bits from an integer, with sign extension.
-
-When T is a scalar type, then:
-
-* w is the bit width of T
-* o = min(offset,w)
-* c = min(count, w - o)
-* The result is 0 if c is 0.
-* Otherwise, bits 0..c-1 of the result are copied from bits o..o+c-1 of e. Other bits of the result are the same as bit c-1 of the result.
-
-Component-wise when T is a vector.
-
-Please read the following guidelines before contributing:
-https://github.com/gpuweb/cts/blob/main/docs/plan_autogen.md
-`).
-
-params((u) =>
-u.
-combine('storageClass', ['uniform', 'storage_r', 'storage_rw']).
-combine('width', [1, 2, 3, 4])).
-
+specURL('https://www.w3.org/TR/WGSL/#integer-builtin-functions').
+desc(`i32 tests`).
+params((u) => u.combine('inputSource', allInputSources).combine('width', [1, 2, 3, 4])).
 fn(async (t) => {
   const cfg = t.params;
 
@@ -246,7 +233,7 @@ fn(async (t) => {
   0b00000000001010101010100000000000);
 
 
-  run(t, builtin('extractBits'), [T, TypeU32, TypeU32], T, cfg, [
+  const cases = [
   { input: [all_0, u32(0), u32(32)], expected: all_0 },
   { input: [all_0, u32(1), u32(10)], expected: all_0 },
   { input: [all_0, u32(2), u32(5)], expected: all_0 },
@@ -267,77 +254,85 @@ fn(async (t) => {
     0b00000000000011101110000000000000,
     0b11111111111100000001111111111111,
     0b00000000001010101010100000000000,
-    0b00000000000101010101010000000000) },
+    0b00000000000101010101010000000000)
 
-
+  },
   {
     input: [pattern, u32(14), u32(18)],
     expected: V(
     0b00000000000000000000000001110111,
     0b11111111111111111111111110000000,
     0b00000000000000000000000101010101,
-    0b00000000000000000000000010101010) },
+    0b00000000000000000000000010101010)
 
-
+  },
   {
     input: [pattern, u32(14), u32(7)],
     expected: V(
     0b11111111111111111111111111110111,
     0b00000000000000000000000000000000,
     0b11111111111111111111111111010101,
-    0b00000000000000000000000000101010) },
+    0b00000000000000000000000000101010)
 
-
+  },
   {
     input: [pattern, u32(14), u32(4)],
     expected: V(
     0b00000000000000000000000000000111,
     0b00000000000000000000000000000000,
     0b00000000000000000000000000000101,
-    0b11111111111111111111111111111010) },
+    0b11111111111111111111111111111010)
 
-
+  },
   {
     input: [pattern, u32(14), u32(3)],
     expected: V(
     0b11111111111111111111111111111111,
     0b00000000000000000000000000000000,
     0b11111111111111111111111111111101,
-    0b00000000000000000000000000000010) },
+    0b00000000000000000000000000000010)
 
-
+  },
   {
     input: [pattern, u32(18), u32(3)],
     expected: V(
     0b11111111111111111111111111111111,
     0b00000000000000000000000000000000,
     0b11111111111111111111111111111101,
-    0b00000000000000000000000000000010) },
+    0b00000000000000000000000000000010)
 
-
+  },
   { input: [low_1, u32(0), u32(1)], expected: all_1 },
   { input: [high_1, u32(31), u32(1)], expected: all_1 },
-
-  // End overflow
-  { input: [low_1, u32(0), u32(99)], expected: low_1 },
-  { input: [high_1, u32(31), u32(99)], expected: all_1 },
-  { input: [pattern, u32(0), u32(99)], expected: pattern },
-  {
-    input: [pattern, u32(14), u32(99)],
-    expected: V(
-    0b00000000000000000000000001110111,
-    0b11111111111111111111111110000000,
-    0b00000000000000000000000101010101,
-    0b00000000000000000000000010101010) },
-
-
 
   // Zero count
   { input: [all_1, u32(0), u32(0)], expected: all_0 },
   { input: [all_0, u32(0), u32(0)], expected: all_0 },
   { input: [low_1, u32(0), u32(0)], expected: all_0 },
   { input: [high_1, u32(31), u32(0)], expected: all_0 },
-  { input: [pattern, u32(0), u32(0)], expected: all_0 }]);
+  { input: [pattern, u32(0), u32(0)], expected: all_0 }];
 
+
+  if (t.params.inputSource !== 'const') {
+    cases.push(
+    ...[
+    // End overflow
+    { input: [low_1, u32(0), u32(99)], expected: low_1 },
+    { input: [high_1, u32(31), u32(99)], expected: all_1 },
+    { input: [pattern, u32(0), u32(99)], expected: pattern },
+    {
+      input: [pattern, u32(14), u32(99)],
+      expected: V(
+      0b00000000000000000000000001110111,
+      0b11111111111111111111111110000000,
+      0b00000000000000000000000101010101,
+      0b00000000000000000000000010101010)
+
+    }]);
+
+
+  }
+
+  await run(t, builtin('extractBits'), [T, TypeU32, TypeU32], T, cfg, cases);
 });
 //# sourceMappingURL=extractBits.spec.js.map

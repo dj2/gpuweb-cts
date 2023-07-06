@@ -15,10 +15,10 @@ class F extends ValidationTest {
   makeIndexBuffer() {
     return this.device.createBuffer({
       size: 16,
-      usage: GPUBufferUsage.INDEX });
-
-  }}
-
+      usage: GPUBufferUsage.INDEX
+    });
+  }
+}
 
 export const g = makeTestGroup(F);
 
@@ -34,8 +34,8 @@ fn((t) => {
   const pipeline = t.createNoOpRenderPipeline();
   const indirectBuffer = t.createBufferWithState(state, {
     size: 256,
-    usage: GPUBufferUsage.INDIRECT });
-
+    usage: GPUBufferUsage.INDIRECT
+  });
 
   const { encoder, validateFinishAndSubmitGivenState } = t.createEncoder(encoderType);
   encoder.setPipeline(pipeline);
@@ -55,19 +55,18 @@ desc(
 'Tests draw(Indexed)Indirect cannot be called with an indirect buffer created from another device').
 
 paramsSubcasesOnly(kIndirectDrawTestParams.combine('mismatched', [true, false])).
-fn(async (t) => {
+beforeAllSubcases((t) => {
+  t.selectMismatchedDeviceOrSkipTestCase(undefined);
+}).
+fn((t) => {
   const { encoderType, indexed, mismatched } = t.params;
 
-  if (mismatched) {
-    await t.selectMismatchedDeviceOrSkipTestCase(undefined);
-  }
+  const sourceDevice = mismatched ? t.mismatchedDevice : t.device;
 
-  const device = mismatched ? t.mismatchedDevice : t.device;
-
-  const indirectBuffer = device.createBuffer({
+  const indirectBuffer = sourceDevice.createBuffer({
     size: 256,
-    usage: GPUBufferUsage.INDIRECT });
-
+    usage: GPUBufferUsage.INDIRECT
+  });
   t.trackForCleanup(indirectBuffer);
 
   const { encoder, validateFinish } = t.createEncoder(encoderType);
@@ -99,8 +98,8 @@ fn((t) => {
   const { encoderType, indexed, usage } = t.params;
   const indirectBuffer = t.device.createBuffer({
     size: 256,
-    usage });
-
+    usage
+  });
 
   const { encoder, validateFinish } = t.createEncoder(encoderType);
   encoder.setPipeline(t.createNoOpRenderPipeline());
@@ -126,8 +125,8 @@ fn((t) => {
   const pipeline = t.createNoOpRenderPipeline();
   const indirectBuffer = t.device.createBuffer({
     size: 256,
-    usage: GPUBufferUsage.INDIRECT });
-
+    usage: GPUBufferUsage.INDIRECT
+  });
 
   const { encoder, validateFinish } = t.createEncoder(encoderType);
   encoder.setPipeline(pipeline);
@@ -186,8 +185,8 @@ fn((t) => {
   const pipeline = t.createNoOpRenderPipeline();
   const indirectBuffer = t.device.createBuffer({
     size: bufferSize,
-    usage: GPUBufferUsage.INDIRECT });
-
+    usage: GPUBufferUsage.INDIRECT
+  });
 
   const { encoder, validateFinish } = t.createEncoder(encoderType);
   encoder.setPipeline(pipeline);

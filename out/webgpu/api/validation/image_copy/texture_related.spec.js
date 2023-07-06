@@ -2,14 +2,14 @@
 * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
 **/export const description = `Texture related validation tests for B2T copy and T2B copy and writeTexture.`;import { makeTestGroup } from '../../../../common/framework/test_group.js';
 import { assert } from '../../../../common/util/util.js';
+import { kTextureDimensions, kTextureUsages } from '../../../capability_info.js';
+import { GPUConst } from '../../../constants.js';
 import {
 kColorTextureFormats,
 kSizedTextureFormats,
-kTextureDimensions,
 kTextureFormatInfo,
 textureDimensionAndFormatCompatible } from
-'../../../capability_info.js';
-import { GPUConst } from '../../../constants.js';
+'../../../format_info.js';
 import { kResourceStates } from '../../../gpu_test.js';
 import { align } from '../../../util/math.js';
 import { virtualMipSize } from '../../../util/texture/base.js';
@@ -44,15 +44,15 @@ combineWithParams([
 { dimension: '3d', size: [4, 4, 3] }])).
 
 
-fn(async (t) => {
+fn((t) => {
   const { method, textureState, size, dimension } = t.params;
 
   const texture = t.createTextureWithState(textureState, {
     size,
     dimension,
     format: 'rgba8unorm',
-    usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST });
-
+    usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST
+  });
 
   const success = textureState === 'valid';
   const submit = textureState !== 'invalid';
@@ -70,20 +70,18 @@ desc('Tests the image copies cannot be called with a texture created from anothe
 paramsSubcasesOnly((u) =>
 u.combine('method', kImageCopyTypes).combine('mismatched', [true, false])).
 
-fn(async (t) => {
+beforeAllSubcases((t) => {
+  t.selectMismatchedDeviceOrSkipTestCase(undefined);
+}).
+fn((t) => {
   const { method, mismatched } = t.params;
+  const sourceDevice = mismatched ? t.mismatchedDevice : t.device;
 
-  if (mismatched) {
-    await t.selectMismatchedDeviceOrSkipTestCase(undefined);
-  }
-
-  const device = mismatched ? t.mismatchedDevice : t.device;
-
-  const texture = device.createTexture({
+  const texture = sourceDevice.createTexture({
     size: { width: 4, height: 4, depthOrArrayLayers: 1 },
     format: 'rgba8unorm',
-    usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST });
-
+    usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST
+  });
 
   t.testRun(
   { texture },
@@ -100,8 +98,7 @@ The texture must have the appropriate COPY_SRC/COPY_DST usage.
 - for various copy methods
 - for various dimensions
 - for various usages
-
-TODO: update to test all texture usages`).
+`).
 
 params((u) =>
 u.
@@ -112,22 +109,28 @@ combineWithParams([
 { dimension: '2d', size: [4, 4, 3] },
 { dimension: '3d', size: [4, 4, 3] }]).
 
-beginSubcases().
-combine('usage', [
-GPUConst.TextureUsage.COPY_SRC | GPUConst.TextureUsage.TEXTURE_BINDING,
-GPUConst.TextureUsage.COPY_DST | GPUConst.TextureUsage.TEXTURE_BINDING,
-GPUConst.TextureUsage.COPY_SRC | GPUConst.TextureUsage.COPY_DST])).
+beginSubcases()
+// If usage0 and usage1 are the same, the usage being test is a single usage. Otherwise, it's
+// a combined usage.
+.combine('usage0', kTextureUsages).
+combine('usage1', kTextureUsages)
+// RENDER_ATTACHMENT is not valid with 1d and 3d textures.
+.unless(
+({ usage0, usage1, dimension }) =>
+((usage0 | usage1) & GPUConst.TextureUsage.RENDER_ATTACHMENT) !== 0 && (
+dimension === '1d' || dimension === '3d'))).
 
 
-fn(async (t) => {
-  const { usage, method, size, dimension } = t.params;
+fn((t) => {
+  const { usage0, usage1, method, size, dimension } = t.params;
 
+  const usage = usage0 | usage1;
   const texture = t.device.createTexture({
     size,
     dimension,
     format: 'rgba8unorm',
-    usage });
-
+    usage
+  });
 
   const success =
   method === 'CopyT2B' ?
@@ -158,15 +161,19 @@ u //
 beginSubcases().
 combine('sampleCount', [1, 4])).
 
-fn(async (t) => {
+fn((t) => {
   const { sampleCount, method } = t.params;
 
   const texture = t.device.createTexture({
     size: { width: 4, height: 4, depthOrArrayLayers: 1 },
     sampleCount,
     format: 'rgba8unorm',
-    usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING });
-
+    usage:
+    GPUTextureUsage.COPY_SRC |
+    GPUTextureUsage.COPY_DST |
+    GPUTextureUsage.TEXTURE_BINDING |
+    GPUTextureUsage.RENDER_ATTACHMENT
+  });
 
   const success = sampleCount === 1;
 
@@ -201,7 +208,7 @@ combine('mipLevelCount', [1, 3, 5]).
 unless((p) => p.dimension === '1d' && p.mipLevelCount !== 1).
 combine('mipLevel', [0, 1, 3, 4])).
 
-fn(async (t) => {
+fn((t) => {
   const { mipLevelCount, mipLevel, method, size, dimension } = t.params;
 
   const texture = t.device.createTexture({
@@ -209,8 +216,8 @@ fn(async (t) => {
     dimension,
     mipLevelCount,
     format: 'rgba8unorm',
-    usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST });
-
+    usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST
+  });
 
   const success = mipLevel < mipLevelCount;
 
@@ -257,7 +264,12 @@ combine('copyHeightModifier', [0, -1])
 // need to examine depth dimension via copyDepthModifier to determine whether it is a full copy for a 3D texture.
 .expand('copyDepthModifier', ({ dimension: d }) => d === '3d' ? [0, -1] : [0])).
 
-fn(async (t) => {
+beforeAllSubcases((t) => {
+  const info = kTextureFormatInfo[t.params.format];
+  t.skipIfTextureFormatNotSupported(t.params.format);
+  t.selectDeviceOrSkipTestCase(info.feature);
+}).
+fn((t) => {
   const {
     method,
     depthOrArrayLayers,
@@ -266,12 +278,10 @@ fn(async (t) => {
     mipLevel,
     copyWidthModifier,
     copyHeightModifier,
-    copyDepthModifier } =
-  t.params;
+    copyDepthModifier
+  } = t.params;
 
   const info = kTextureFormatInfo[format];
-  await t.selectDeviceOrSkipTestCase(info.feature);
-
   const size = { width: 32 * info.blockWidth, height: 32 * info.blockHeight, depthOrArrayLayers };
   if (dimension === '1d') {
     size.height = 1;
@@ -282,8 +292,8 @@ fn(async (t) => {
     dimension,
     format,
     mipLevelCount: dimension === '1d' ? 1 : 5,
-    usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST });
-
+    usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST
+  });
 
   let success = true;
   if (
@@ -312,8 +322,8 @@ fn(async (t) => {
   {
     dataSize: 512 * 32 * 32,
     method,
-    success });
-
+    success
+  });
 
 });
 
@@ -345,18 +355,21 @@ combine('coordinateToTest', ['x', 'y', 'z']).
 unless((p) => p.dimension === '1d' && p.coordinateToTest !== 'x').
 expand('valueToCoordinate', texelBlockAlignmentTestExpanderForValueToCoordinate)).
 
-fn(async (t) => {
+beforeAllSubcases((t) => {
+  const info = kTextureFormatInfo[t.params.format];
+  t.skipIfTextureFormatNotSupported(t.params.format);
+  t.selectDeviceOrSkipTestCase(info.feature);
+}).
+fn((t) => {
   const {
     valueToCoordinate,
     coordinateToTest,
     format,
     method,
     depthOrArrayLayers,
-    dimension } =
-  t.params;
+    dimension
+  } = t.params;
   const info = kTextureFormatInfo[format];
-  await t.selectDeviceOrSkipTestCase(info.feature);
-
   const size = { width: 0, height: 0, depthOrArrayLayers };
   const origin = { x: 0, y: 0, z: 0 };
   let success = true;
@@ -378,8 +391,8 @@ fn(async (t) => {
   t.testRun({ texture, origin }, { bytesPerRow: 0, rowsPerImage: 0 }, size, {
     dataSize: 1,
     method,
-    success });
-
+    success
+  });
 });
 
 g.test('size_alignment').
@@ -406,11 +419,14 @@ combine('coordinateToTest', ['width', 'height', 'depthOrArrayLayers']).
 unless((p) => p.dimension === '1d' && p.coordinateToTest !== 'width').
 expand('valueToCoordinate', texelBlockAlignmentTestExpanderForValueToCoordinate)).
 
-fn(async (t) => {
+beforeAllSubcases((t) => {
+  const info = kTextureFormatInfo[t.params.format];
+  t.skipIfTextureFormatNotSupported(t.params.format);
+  t.selectDeviceOrSkipTestCase(info.feature);
+}).
+fn((t) => {
   const { valueToCoordinate, coordinateToTest, dimension, format, method } = t.params;
   const info = kTextureFormatInfo[format];
-  await t.selectDeviceOrSkipTestCase(info.feature);
-
   const size = { width: 0, height: 0, depthOrArrayLayers: 0 };
   const origin = { x: 0, y: 0, z: 0 };
   let success = true;
@@ -437,8 +453,8 @@ fn(async (t) => {
   t.testRun({ texture, origin }, { bytesPerRow, rowsPerImage }, size, {
     dataSize: 1,
     method,
-    success });
-
+    success
+  });
 });
 
 g.test('copy_rectangle').
@@ -464,7 +480,7 @@ combine('mipLevel', [0, 2]).
 combine('coordinateToTest', [0, 1, 2]).
 unless((p) => p.dimension === '1d' && (p.coordinateToTest !== 0 || p.mipLevel !== 0))).
 
-fn(async (t) => {
+fn((t) => {
   const {
     originValue,
     copySizeValue,
@@ -472,8 +488,8 @@ fn(async (t) => {
     mipLevel,
     coordinateToTest,
     method,
-    dimension } =
-  t.params;
+    dimension
+  } = t.params;
   const format = 'rgba8unorm';
   const info = kTextureFormatInfo[format];
 
@@ -509,8 +525,8 @@ fn(async (t) => {
     dimension,
     mipLevelCount: dimension === '1d' ? 1 : 3,
     format,
-    usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST });
-
+    usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST
+  });
 
   assert(copySize[0] % info.blockWidth === 0);
   const bytesPerRow = align(copySize[0] / info.blockWidth, 256);
@@ -519,7 +535,7 @@ fn(async (t) => {
   t.testRun({ texture, origin, mipLevel }, { bytesPerRow, rowsPerImage }, copySize, {
     dataSize: 1,
     method,
-    success });
-
+    success
+  });
 });
 //# sourceMappingURL=texture_related.spec.js.map

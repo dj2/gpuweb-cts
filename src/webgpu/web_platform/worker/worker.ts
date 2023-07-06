@@ -1,22 +1,23 @@
-import { getGPU } from '../../../common/util/navigator_gpu.js';
+import { getGPU, setDefaultRequestAdapterOptions } from '../../../common/util/navigator_gpu.js';
 import { assert, objectEquals, iterRange } from '../../../common/util/util.js';
 
 async function basicTest() {
-  const adapter = await getGPU().requestAdapter();
+  const adapter = await getGPU(null).requestAdapter();
   assert(adapter !== null, 'Failed to get adapter.');
 
   const device = await adapter.requestDevice();
   assert(device !== null, 'Failed to get device.');
 
   const kOffset = 1230000;
-  const pipeline = await device.createComputePipeline({
+  const pipeline = device.createComputePipeline({
+    layout: 'auto',
     compute: {
       module: device.createShaderModule({
         code: `
-          struct Buffer { data: array<u32>; };
+          struct Buffer { data: array<u32>, };
 
           @group(0) @binding(0) var<storage, read_write> buffer: Buffer;
-          @stage(compute) @workgroup_size(1u) fn main(
+          @compute @workgroup_size(1u) fn main(
               @builtin(global_invocation_id) id: vec3<u32>) {
             buffer.data[id.x] = id.x + ${kOffset}u;
           }
@@ -48,7 +49,7 @@ async function basicTest() {
   const pass = encoder.beginComputePass();
   pass.setPipeline(pipeline);
   pass.setBindGroup(0, bindGroup);
-  pass.dispatch(kNumElements);
+  pass.dispatchWorkgroups(kNumElements);
   pass.end();
 
   encoder.copyBufferToBuffer(buffer, 0, resultBuffer, 0, kBufferSize);
@@ -68,6 +69,10 @@ async function basicTest() {
 }
 
 self.onmessage = async (ev: MessageEvent) => {
+  const defaultRequestAdapterOptions: GPURequestAdapterOptions =
+    ev.data.defaultRequestAdapterOptions;
+  setDefaultRequestAdapterOptions(defaultRequestAdapterOptions);
+
   let error = undefined;
   try {
     await basicTest();

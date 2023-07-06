@@ -6,7 +6,7 @@ import {
   kEncodableTextureFormats,
   kTextureFormatInfo,
   EncodableTextureFormat,
-} from '../../capability_info.js';
+} from '../../format_info.js';
 import { GPUTest } from '../../gpu_test.js';
 
 import {
@@ -56,11 +56,11 @@ function doTest(
   @group(0) @binding(0) var tex : texture_2d<${shaderType}>;
 
   struct Output {
-    ${rep.componentOrder.map(C => `result${C} : ${shaderType};`).join('\n')}
+    ${rep.componentOrder.map(C => `result${C} : ${shaderType},`).join('\n')}
   };
   @group(0) @binding(1) var<storage, read_write> output : Output;
 
-  @stage(compute) @workgroup_size(1)
+  @compute @workgroup_size(1)
   fn main() {
       var texel : vec4<${shaderType}> = textureLoad(tex, vec2<i32>(0, 0), 0);
       ${rep.componentOrder.map(C => `output.result${C} = texel.${C.toLowerCase()};`).join('\n')}
@@ -68,6 +68,7 @@ function doTest(
   }`;
 
   const pipeline = t.device.createComputePipeline({
+    layout: 'auto',
     compute: {
       module: t.device.createShaderModule({
         code: shader,
@@ -101,7 +102,7 @@ function doTest(
   const pass = encoder.beginComputePass();
   pass.setPipeline(pipeline);
   pass.setBindGroup(0, bindGroup);
-  pass.dispatch(1);
+  pass.dispatchWorkgroups(1);
   pass.end();
   t.device.queue.submit([encoder.finish()]);
 
@@ -137,11 +138,8 @@ g.test('unorm_texel_data_in_shader')
     u
       .combine('format', kEncodableTextureFormats)
       .filter(({ format }) => {
-        return (
-          kTextureFormatInfo[format].copyDst &&
-          kTextureFormatInfo[format].color &&
-          getSingleDataType(format) === 'unorm'
-        );
+        const info = kTextureFormatInfo[format];
+        return !!info.color && info.color.copyDst && getSingleDataType(format) === 'unorm';
       })
       .beginSubcases()
       .expand('componentData', ({ format }) => {
@@ -162,6 +160,9 @@ g.test('unorm_texel_data_in_shader')
         ];
       })
   )
+  .beforeAllSubcases(t => {
+    t.skipIfTextureFormatNotSupported(t.params.format);
+  })
   .fn(doTest);
 
 g.test('snorm_texel_data_in_shader')
@@ -169,11 +170,8 @@ g.test('snorm_texel_data_in_shader')
     u
       .combine('format', kEncodableTextureFormats)
       .filter(({ format }) => {
-        return (
-          kTextureFormatInfo[format].copyDst &&
-          kTextureFormatInfo[format].color &&
-          getSingleDataType(format) === 'snorm'
-        );
+        const info = kTextureFormatInfo[format];
+        return !!info.color && info.color.copyDst && getSingleDataType(format) === 'snorm';
       })
       .beginSubcases()
       .expand('componentData', ({ format }) => {
@@ -204,11 +202,8 @@ g.test('uint_texel_data_in_shader')
     u
       .combine('format', kEncodableTextureFormats)
       .filter(({ format }) => {
-        return (
-          kTextureFormatInfo[format].copyDst &&
-          kTextureFormatInfo[format].color &&
-          getSingleDataType(format) === 'uint'
-        );
+        const info = kTextureFormatInfo[format];
+        return !!info.color && info.color.copyDst && getSingleDataType(format) === 'uint';
       })
       .beginSubcases()
       .expand('componentData', ({ format }) => {
@@ -236,11 +231,8 @@ g.test('sint_texel_data_in_shader')
     u
       .combine('format', kEncodableTextureFormats)
       .filter(({ format }) => {
-        return (
-          kTextureFormatInfo[format].copyDst &&
-          kTextureFormatInfo[format].color &&
-          getSingleDataType(format) === 'sint'
-        );
+        const info = kTextureFormatInfo[format];
+        return !!info.color && info.color.copyDst && getSingleDataType(format) === 'sint';
       })
       .beginSubcases()
       .expand('componentData', ({ format }) => {
@@ -274,11 +266,8 @@ TODO: Test NaN, Infinity, -Infinity [1]`
     u
       .combine('format', kEncodableTextureFormats)
       .filter(({ format }) => {
-        return (
-          kTextureFormatInfo[format].copyDst &&
-          kTextureFormatInfo[format].color &&
-          getSingleDataType(format) === 'float'
-        );
+        const info = kTextureFormatInfo[format];
+        return !!info.color && info.color.copyDst && getSingleDataType(format) === 'float';
       })
       .beginSubcases()
       .expand('componentData', ({ format }) => {
@@ -314,11 +303,8 @@ TODO: Test NaN, Infinity [1]`
     u
       .combine('format', kEncodableTextureFormats)
       .filter(({ format }) => {
-        return (
-          kTextureFormatInfo[format].copyDst &&
-          kTextureFormatInfo[format].color &&
-          getSingleDataType(format) === 'ufloat'
-        );
+        const info = kTextureFormatInfo[format];
+        return !!info.color && info.color.copyDst && getSingleDataType(format) === 'ufloat';
       })
       .beginSubcases()
       .expand('componentData', ({ format }) => {

@@ -44,8 +44,8 @@ f)
   for (const a of buffer.attributes) {
     newAttributes.push({
       shaderLocation: a.shaderLocation,
-      ...f(buffer, a) });
-
+      ...f(buffer, a)
+    });
   }
 
   return { ...buffer, attributes: newAttributes };
@@ -186,7 +186,7 @@ struct VSOutputs {
   @builtin(position) position : vec4<f32>,
 };
 
-@stage(vertex) fn vsMain(input : Inputs) -> VSOutputs {
+@vertex fn vsMain(input : Inputs) -> VSOutputs {
   doTest(input);
 
   // Place that point at pixel (vertexIndex, instanceIndex) in a framebuffer of size
@@ -201,7 +201,7 @@ struct VSOutputs {
   return output;
 }
 
-@stage(fragment) fn fsMain(@location(0) @interpolate(flat) result : i32)
+@fragment fn fsMain(@location(0) @interpolate(flat) result : i32)
   -> @location(0) i32 {
   return result;
 }
@@ -223,8 +223,8 @@ struct VSOutputs {
   instanceCount)
   {
     const module = this.device.createShaderModule({
-      code: this.makeTestWGSL(buffers, vertexCount, instanceCount) });
-
+      code: this.makeTestWGSL(buffers, vertexCount, instanceCount)
+    });
 
     const bufferLayouts = [];
     for (const b of buffers) {
@@ -232,24 +232,25 @@ struct VSOutputs {
     }
 
     return this.device.createRenderPipeline({
+      layout: 'auto',
       vertex: {
         module,
         entryPoint: 'vsMain',
-        buffers: bufferLayouts },
-
+        buffers: bufferLayouts
+      },
       primitive: {
-        topology: 'point-list' },
-
+        topology: 'point-list'
+      },
       fragment: {
         module,
         entryPoint: 'fsMain',
         targets: [
         {
-          format: 'r32sint' }] } });
+          format: 'r32sint'
+        }]
 
-
-
-
+      }
+    });
   }
 
   // Runs the render pass drawing points in a vertexCount*instanceCount rectangle, then check each
@@ -264,8 +265,8 @@ struct VSOutputs {
     const testTexture = this.device.createTexture({
       format: 'r32sint',
       size: [vertexCount, instanceCount],
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
-
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
 
     const encoder = this.device.createCommandEncoder();
     const pass = encoder.beginRenderPass({
@@ -274,10 +275,10 @@ struct VSOutputs {
         view: testTexture.createView(),
         clearValue: [0, 0, 0, 0],
         loadOp: 'clear',
-        storeOp: 'store' }] });
+        storeOp: 'store'
+      }]
 
-
-
+    });
 
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, expectedData);
@@ -291,8 +292,8 @@ struct VSOutputs {
 
     this.expectSingleColor(testTexture, 'r32sint', {
       size: [vertexCount, instanceCount, 1],
-      exp: { R: 1 } });
-
+      exp: { R: 1 }
+    });
   }
 
   // Generate TestData for the format with interesting test values.
@@ -319,8 +320,8 @@ struct VSOutputs {
             testComponentCount: data.length,
             expectedData,
             vertexData,
-            floatTolerance: 0.05 };
-
+            floatTolerance: 0.05
+          };
         }
 
       case 'sint':{
@@ -346,8 +347,8 @@ struct VSOutputs {
             shaderBaseType: 'i32',
             testComponentCount: data.length,
             expectedData,
-            vertexData };
-
+            vertexData
+          };
         }
 
       case 'uint':{
@@ -370,8 +371,8 @@ struct VSOutputs {
             shaderBaseType: 'u32',
             testComponentCount: data.length,
             expectedData,
-            vertexData };
-
+            vertexData
+          };
         }
 
       case 'snorm':{
@@ -398,8 +399,8 @@ struct VSOutputs {
             expectedData: new Float32Array(data.map((v) => normalizedIntegerAsFloat(v, bitSize, true))).
             buffer,
             vertexData,
-            floatTolerance: 0.1 * normalizedIntegerAsFloat(1, bitSize, true) };
-
+            floatTolerance: 0.1 * normalizedIntegerAsFloat(1, bitSize, true)
+          };
         }
 
       case 'unorm':{
@@ -422,9 +423,9 @@ struct VSOutputs {
             testComponentCount: data.length,
             expectedData: new Float32Array(data.map((v) => normalizedIntegerAsFloat(v, bitSize, false))).
             buffer,
-            vertexData: vertexData,
-            floatTolerance: 0.1 * normalizedIntegerAsFloat(1, bitSize, false) };
-
+            vertexData,
+            floatTolerance: 0.1 * normalizedIntegerAsFloat(1, bitSize, false)
+          };
         }}
 
   }
@@ -466,8 +467,8 @@ struct VSOutputs {
       testComponentCount: maxCount * componentCount,
       floatTolerance: data.floatTolerance,
       expectedData: expandedExpectedData.buffer,
-      vertexData: expandedVertexData.buffer };
-
+      vertexData: expandedVertexData.buffer
+    };
   }
 
   // Copies `size` bytes from `source` to `target` starting at `offset` each `targetStride`.
@@ -502,8 +503,8 @@ struct VSOutputs {
 
       return {
         ...testData,
-        ...attrib };
-
+        ...attrib
+      };
     });
   }
 
@@ -519,15 +520,15 @@ struct VSOutputs {
 
         bgEntries.push({
           binding: attrib.shaderLocation,
-          resource: { buffer: expectedDataBuffer } });
-
+          resource: { buffer: expectedDataBuffer }
+        });
       }
     }
 
     return this.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
-      entries: bgEntries });
-
+      entries: bgEntries
+    });
   }
 
   createVertexBuffers(
@@ -553,16 +554,16 @@ struct VSOutputs {
         this.interleaveVertexDataInto(vertexData, attrib.vertexData, {
           targetStride: buffer.arrayStride,
           offset: (buffer.vbOffset ?? 0) + attrib.offset,
-          size: formatInfo.componentCount * formatInfo.bytesPerComponent });
-
+          size: formatInfo.componentCount * formatInfo.bytesPerComponent
+        });
       }
 
       vertexBuffers.push({
         slot: buffer.slot,
         buffer: this.makeBufferWithContents(new Uint8Array(vertexData), GPUBufferUsage.VERTEX),
         vbOffset: buffer.vbOffset,
-        attributes: [] });
-
+        attributes: []
+      });
     }
 
     return vertexBuffers;
@@ -580,8 +581,8 @@ struct VSOutputs {
     const expectedDataBG = this.createExpectedBG(testData, pipeline);
     const vertexBuffers = this.createVertexBuffers(testData, vertexCount, instanceCount);
     this.submitRenderPass(pipeline, vertexBuffers, expectedDataBG, vertexCount, instanceCount);
-  }}
-
+  }
+}
 
 export const g = makeTestGroup(VertexStateTest);
 
@@ -613,10 +614,10 @@ fn((t) => {
       shaderLocation,
       format,
       offset: 0,
-      shaderComponentCount }] }]);
+      shaderComponentCount
+    }]
 
-
-
+  }]);
 
 });
 
@@ -663,10 +664,10 @@ fn((t) => {
     {
       shaderLocation: 0,
       format,
-      offset }] }]);
+      offset
+    }]
 
-
-
+  }]);
 
 });
 
@@ -714,10 +715,10 @@ fn((t) => {
     {
       shaderLocation: 0,
       format,
-      offset }] }]);
+      offset
+    }]
 
-
-
+  }]);
 
 });
 
@@ -745,10 +746,10 @@ fn((t) => {
     {
       shaderLocation: i,
       format: 'float32',
-      offset: 0 }] }));
+      offset: 0
+    }]
 
-
-
+  }));
   t.runTest(state);
 });
 
@@ -787,8 +788,8 @@ fn((t) => {
     arrayStride: alignedFormatByteSize,
     stepMode: 'vertex',
     vbOffset: additionalVBOffset,
-    attributes: [{ shaderLocation: 0, format, offset: 0 }] }],
-
+    attributes: [{ shaderLocation: 0, format, offset: 0 }]
+  }],
 
   baseDataVertexCount,
   kInstanceCount);
@@ -818,8 +819,8 @@ fn((t) => {
       buffer: vertexBuffer,
       slot: i,
       vbOffset: additionalVBOffset + i * alignedFormatByteSize,
-      attributes: [] });
-
+      attributes: []
+    });
 
     testData.push({
       slot: i,
@@ -839,10 +840,10 @@ fn((t) => {
         expectedDataBytesPerVertex * i,
         expectedDataBytesPerVertex * (kVertexCount + i)),
 
-        vertexData: new ArrayBuffer(0) }] });
+        vertexData: new ArrayBuffer(0)
+      }]
 
-
-
+    });
   }
 
   // Run the test with the modified test data.
@@ -892,8 +893,8 @@ fn((t) => {
     arrayStride: alignedFormatByteSize * vbCount,
     stepMode: 'vertex',
     vbOffset: additionalVBOffset,
-    attributes: attribs }],
-
+    attributes: attribs
+  }],
 
   // Request one vertex more than what we need so we have an extra full stride. Otherwise WebGPU
   // validation of vertex being in bounds will fail for all vertex buffers at an offset that's
@@ -915,13 +916,13 @@ fn((t) => {
       slot: i,
       buffer: vertexBuffer,
       vbOffset: additionalVBOffset + i * alignedFormatByteSize,
-      attributes: [] });
-
+      attributes: []
+    });
     testData.push({
       ...baseData[0],
       slot: i,
-      attributes: [{ ...baseData[0].attributes[i], offset: 0 }] });
-
+      attributes: [{ ...baseData[0].attributes[i], offset: 0 }]
+    });
   }
 
   // Run the test with the modified test data.
@@ -953,8 +954,8 @@ fn((t) => {
       slot: i,
       stepMode: 'vertex',
       arrayStride: 32,
-      attributes });
-
+      attributes
+    });
   }
   t.runTest(state);
 });
@@ -1000,8 +1001,8 @@ fn((t) => {
     arrayStride: 2048,
     stepMode,
     vbOffset: offset, // used to push data in the vertex buffer
-    attributes: [{ format, offset: 0, shaderLocation: 0 }] }],
-
+    attributes: [{ format, offset: 0, shaderLocation: 0 }]
+  }],
 
   1,
   1)[
@@ -1029,8 +1030,8 @@ fn((t) => {
     slot: 1,
     arrayStride: 32,
     stepMode,
-    attributes: [{ format, offset: 0, shaderLocation: 1 }] }],
-
+    attributes: [{ format, offset: 0, shaderLocation: 1 }]
+  }],
 
   kCount,
   kCount)[
@@ -1056,16 +1057,16 @@ fn((t) => {
     stepMode: 'vertex',
     attributes: [
     { format: 'uint8x2', offset: 2, shaderLocation: 0 },
-    { format: 'uint8x2', offset: 0, shaderLocation: 8 }] },
+    { format: 'uint8x2', offset: 0, shaderLocation: 8 }]
 
-
+  },
   {
     slot: 1,
     arrayStride: 16,
     stepMode: 'instance',
     vbOffset: 1000,
-    attributes: [{ format: 'uint32x4', offset: 0, shaderLocation: kMaxVertexAttributes - 1 }] }]);
-
+    attributes: [{ format: 'uint32x4', offset: 0, shaderLocation: kMaxVertexAttributes - 1 }]
+  }]);
 
 });
 
@@ -1088,8 +1089,8 @@ fn((t) => {
     slot: 0,
     stepMode: 'vertex',
     arrayStride: 32,
-    attributes }]);
-
+    attributes
+  }]);
 
 });
 //# sourceMappingURL=correctness.spec.js.map

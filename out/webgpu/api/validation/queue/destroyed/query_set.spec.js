@@ -32,13 +32,12 @@ Tests that use a destroyed query set in writeTimestamp on {non-pass, compute, re
   `).
 
 params((u) => u.beginSubcases().combine('querySetState', ['valid', 'destroyed'])).
-fn(async (t) => {
-  await t.selectDeviceOrSkipTestCase('timestamp-query');
-
+beforeAllSubcases((t) => t.selectDeviceOrSkipTestCase('timestamp-query')).
+fn((t) => {
   const querySet = t.createQuerySetWithState(t.params.querySetState, {
     type: 'timestamp',
-    count: 2 });
-
+    count: 2
+  });
 
   const encoder = t.createEncoder('non-pass');
   encoder.encoder.writeTimestamp(querySet, 0);
@@ -53,7 +52,7 @@ Tests that use a destroyed query set in resolveQuerySet.
   `).
 
 paramsSubcasesOnly((u) => u.combine('querySetState', ['valid', 'destroyed'])).
-fn(async (t) => {
+fn((t) => {
   const querySet = t.createQuerySetWithState(t.params.querySetState);
 
   const buffer = t.device.createBuffer({ size: 8, usage: GPUBufferUsage.QUERY_RESOLVE });

@@ -1,9 +1,10 @@
 /**
 * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
-**/import { kTextureFormatInfo,
+**/import { depthStencilFormatCopyableAspects,
 
-depthStencilFormatCopyableAspects } from
-'../../../capability_info.js';
+kTextureFormatInfo,
+isCompressedTextureFormat } from
+'../../../format_info.js';
 import { align } from '../../../util/math.js';
 
 import { ValidationTest } from '../validation_test.js';
@@ -17,7 +18,7 @@ export class ImageCopyTest extends ValidationTest {
     method,
     dataSize,
     success,
-    submit = false })
+    submit = false
 
 
 
@@ -25,7 +26,7 @@ export class ImageCopyTest extends ValidationTest {
 
 
 
-
+  })
   {
     switch (method) {
       case 'WriteTexture':{
@@ -40,8 +41,8 @@ export class ImageCopyTest extends ValidationTest {
       case 'CopyB2T':{
           const buffer = this.device.createBuffer({
             size: dataSize,
-            usage: GPUBufferUsage.COPY_SRC });
-
+            usage: GPUBufferUsage.COPY_SRC
+          });
           this.trackForCleanup(buffer);
 
           const encoder = this.device.createCommandEncoder();
@@ -61,10 +62,15 @@ export class ImageCopyTest extends ValidationTest {
           break;
         }
       case 'CopyT2B':{
+          if (this.isCompatibility && isCompressedTextureFormat(textureCopyView.texture.format)) {
+            this.skip(
+            'copyTextureToBuffer is not supported for compressed texture formats in compatibility mode.');
+
+          }
           const buffer = this.device.createBuffer({
             size: dataSize,
-            usage: GPUBufferUsage.COPY_DST });
-
+            usage: GPUBufferUsage.COPY_DST
+          });
           this.trackForCleanup(buffer);
 
           const encoder = this.device.createCommandEncoder();
@@ -96,8 +102,8 @@ export class ImageCopyTest extends ValidationTest {
   size = {
     width: 1,
     height: 1,
-    depthOrArrayLayers: 1 },
-
+    depthOrArrayLayers: 1
+  },
   origin = { x: 0, y: 0, z: 0 },
   dimension = '2d')
   {
@@ -105,14 +111,14 @@ export class ImageCopyTest extends ValidationTest {
     const alignedSize = {
       width: align(Math.max(1, size.width + origin.x), info.blockWidth),
       height: align(Math.max(1, size.height + origin.y), info.blockHeight),
-      depthOrArrayLayers: Math.max(1, size.depthOrArrayLayers + origin.z) };
-
+      depthOrArrayLayers: Math.max(1, size.depthOrArrayLayers + origin.z)
+    };
     return this.device.createTexture({
       size: alignedSize,
       dimension,
       format,
-      usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST });
-
+      usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST
+    });
   }
 
   testBuffer(
@@ -124,7 +130,7 @@ export class ImageCopyTest extends ValidationTest {
     method,
     dataSize,
     success,
-    submit = true })
+    submit = true
 
 
 
@@ -132,7 +138,7 @@ export class ImageCopyTest extends ValidationTest {
 
 
 
-
+  })
   {
     switch (method) {
       case 'WriteTexture':{
@@ -159,6 +165,11 @@ export class ImageCopyTest extends ValidationTest {
           break;
         }
       case 'CopyT2B':{
+          if (this.isCompatibility && isCompressedTextureFormat(texture.format)) {
+            this.skip(
+            'copyTextureToBuffer is not supported for compressed texture formats in compatibility mode.');
+
+          }
           const { encoder, validateFinish, validateFinishAndSubmit } = this.createEncoder('non-pass');
           encoder.copyTextureToBuffer({ texture }, { buffer, ...textureDataLayout }, size);
 
@@ -173,8 +184,8 @@ export class ImageCopyTest extends ValidationTest {
           break;
         }}
 
-  }}
-
+  }
+}
 
 // For testing divisibility by a number we test all the values returned by this function:
 function valuesToTestDivisibilityBy(number) {
@@ -216,8 +227,8 @@ export function texelBlockAlignmentTestExpanderForRowsPerImage({ format }) {
 // This is a helper function used for expanding test parameters for texel block alignment tests on origin and size
 export function texelBlockAlignmentTestExpanderForValueToCoordinate({
   format,
-  coordinateToTest })
-{
+  coordinateToTest
+}) {
   switch (coordinateToTest) {
     case 'x':
     case 'width':
@@ -253,8 +264,8 @@ export function formatCopyableWithMethod({ format, method }) {
 // This is a helper function used for filtering test parameters
 export function getACopyableAspectWithMethod({
   format,
-  method })
-{
+  method
+}) {
   const info = kTextureFormatInfo[format];
   if (info.depth || info.stencil) {
     const supportedAspects = depthStencilFormatCopyableAspects(

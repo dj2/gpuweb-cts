@@ -2,13 +2,13 @@
  * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
  **/ export const description = `Validation tests for buffer related parameters for buffer <-> texture copies`;
 import { makeTestGroup } from '../../../../common/framework/test_group.js';
+import { kTextureDimensions } from '../../../capability_info.js';
+import { GPUConst } from '../../../constants.js';
 import {
   kSizedTextureFormats,
-  kTextureDimensions,
   kTextureFormatInfo,
   textureDimensionAndFormatCompatible,
-} from '../../../capability_info.js';
-import { GPUConst } from '../../../constants.js';
+} from '../../../format_info.js';
 import { kResourceStates } from '../../../gpu_test.js';
 import { kImageCopyTypes } from '../../../util/texture/layout.js';
 
@@ -30,7 +30,7 @@ Test that the buffer must be valid and not destroyed.
       .combine('method', ['CopyB2T', 'CopyT2B'])
       .combine('state', kResourceStates)
   )
-  .fn(async t => {
+  .fn(t => {
     const { method, state } = t.params;
 
     // A valid buffer.
@@ -63,20 +63,17 @@ g.test('buffer,device_mismatch')
   .paramsSubcasesOnly(u =>
     u.combine('method', ['CopyB2T', 'CopyT2B']).combine('mismatched', [true, false])
   )
-  .fn(async t => {
+  .beforeAllSubcases(t => {
+    t.selectMismatchedDeviceOrSkipTestCase(undefined);
+  })
+  .fn(t => {
     const { method, mismatched } = t.params;
+    const sourceDevice = mismatched ? t.mismatchedDevice : t.device;
 
-    if (mismatched) {
-      await t.selectMismatchedDeviceOrSkipTestCase(undefined);
-    }
-
-    const device = mismatched ? t.mismatchedDevice : t.device;
-
-    const buffer = device.createBuffer({
+    const buffer = sourceDevice.createBuffer({
       size: 16,
       usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
     });
-
     t.trackForCleanup(buffer);
 
     const texture = t.device.createTexture({
@@ -117,7 +114,7 @@ TODO update such that it tests
         GPUConst.BufferUsage.COPY_SRC | GPUConst.BufferUsage.COPY_DST,
       ])
   )
-  .fn(async t => {
+  .fn(t => {
     const { method, usage } = t.params;
 
     const buffer = t.device.createBuffer({
@@ -174,7 +171,9 @@ Test that bytesPerRow must be a multiple of 256 for CopyB2T and CopyT2B if it is
       // Depth/stencil format copies must copy the whole subresource.
       .unless(p => {
         const info = kTextureFormatInfo[p.format];
-        return (info.depth || info.stencil) && p.copyHeightInBlocks !== p._textureHeightInBlocks;
+        return (
+          (!!info.depth || !!info.stencil) && p.copyHeightInBlocks !== p._textureHeightInBlocks
+        );
       })
       // bytesPerRow must be specified and it must be equal or greater than the bytes size of each row if we are copying multiple rows.
       // Note that we are copying one single block on each row in this test.
@@ -184,7 +183,12 @@ Test that bytesPerRow must be a multiple of 256 for CopyB2T and CopyT2B if it is
           (bytesPerRow !== undefined && bytesPerRow >= kTextureFormatInfo[format].bytesPerBlock)
       )
   )
-  .fn(async t => {
+  .beforeAllSubcases(t => {
+    const info = kTextureFormatInfo[t.params.format];
+    t.skipIfTextureFormatNotSupported(t.params.format);
+    t.selectDeviceOrSkipTestCase(info.feature);
+  })
+  .fn(t => {
     const {
       method,
       dimension,
@@ -195,7 +199,6 @@ Test that bytesPerRow must be a multiple of 256 for CopyB2T and CopyT2B if it is
     } = t.params;
 
     const info = kTextureFormatInfo[format];
-    await t.selectDeviceOrSkipTestCase(info.feature);
 
     const buffer = t.device.createBuffer({
       size: 512 * 8 * 16,

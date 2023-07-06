@@ -51,17 +51,22 @@ import { loadTreeForQuery } from './tree.js';
 
 
 
+
 // Base class for DefaultTestFileLoader and FakeTestFileLoader.
 export class TestFileLoader extends EventTarget {
 
 
 
-  importSpecFile(suite, path) {
+  async importSpecFile(suite, path) {
     const url = `${suite}/${path.join('/')}.spec.js`;
     this.dispatchEvent(
     new MessageEvent('import', { data: { url } }));
 
-    return this.import(url);
+    const ret = await this.import(url);
+    this.dispatchEvent(
+    new MessageEvent('imported', { data: { url } }));
+
+    return ret;
   }
 
   async loadTree(query, subqueriesToExpand = []) {
@@ -81,8 +86,8 @@ export class TestFileLoader extends EventTarget {
   async loadCases(query) {
     const tree = await this.loadTree(query);
     return tree.iterateLeaves();
-  }}
-
+  }
+}
 
 export class DefaultTestFileLoader extends TestFileLoader {
   async listing(suite) {
@@ -91,5 +96,6 @@ export class DefaultTestFileLoader extends TestFileLoader {
 
   import(path) {
     return import(`../../${path}`);
-  }}
+  }
+}
 //# sourceMappingURL=file_loader.js.map

@@ -1,10 +1,10 @@
 import { assert, memcpy } from '../../../common/util/util.js';
 import {
-  EncodableTextureFormat,
   kTextureFormatInfo,
   resolvePerAspectFormat,
   SizedTextureFormat,
-} from '../../capability_info.js';
+  EncodableTextureFormat,
+} from '../../format_info.js';
 import { align } from '../math.js';
 import { reifyExtent3D } from '../unions.js';
 
@@ -107,7 +107,8 @@ export function getTextureSubCopyLayout(
   );
   assert(
     copySize_.width % blockWidth === 0 && copySize_.height % blockHeight === 0,
-    'copySize must be a multiple of the block size'
+    () =>
+      `copySize (${copySize_.width},${copySize_.height}) must be a multiple of the block size (${blockWidth},${blockHeight})`
   );
   const copySizeBlocks = {
     width: copySize_.width / blockWidth,
@@ -115,7 +116,7 @@ export function getTextureSubCopyLayout(
     depthOrArrayLayers: copySize_.depthOrArrayLayers,
   };
 
-  const minBytesPerRow = copySizeBlocks.width * bytesPerBlock!;
+  const minBytesPerRow = copySizeBlocks.width * bytesPerBlock;
   const alignedMinBytesPerRow = align(minBytesPerRow, kBytesPerRowAlignment);
   if (bytesPerRow !== undefined) {
     assert(bytesPerRow >= alignedMinBytesPerRow);
@@ -132,11 +133,11 @@ export function getTextureSubCopyLayout(
 
   const bytesPerSlice = bytesPerRow * rowsPerImage;
   const sliceSize =
-    bytesPerRow * (copySizeBlocks.height - 1) + bytesPerBlock! * copySizeBlocks.width;
+    bytesPerRow * (copySizeBlocks.height - 1) + bytesPerBlock * copySizeBlocks.width;
   const byteLength = bytesPerSlice * (copySizeBlocks.depthOrArrayLayers - 1) + sliceSize;
 
   return {
-    bytesPerBlock: bytesPerBlock!,
+    bytesPerBlock,
     byteLength: align(byteLength, kBufferCopyAlignment),
     minBytesPerRow,
     bytesPerRow,

@@ -27,6 +27,11 @@ export const listing = [
   },
   {
     "file": [
+      "floating_point"
+    ]
+  },
+  {
+    "file": [
       "getStackTrace"
     ]
   },
@@ -68,6 +73,11 @@ export const listing = [
   {
     "file": [
       "query_string"
+    ]
+  },
+  {
+    "file": [
+      "serialization"
     ]
   },
   {

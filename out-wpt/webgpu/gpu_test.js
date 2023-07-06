@@ -1,22 +1,27 @@
 /**
  * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
- **/ import { Fixture } from '../common/framework/fixture.js';
-import { attemptGarbageCollection } from '../common/util/collect_garbage.js';
+ **/ import { Fixture, SkipTestCase, SubcaseBatchState } from '../common/framework/fixture.js';
+import { globalTestConfig } from '../common/framework/test_config.js';
 import { assert, range, unreachable } from '../common/util/util.js';
 
-import { kTextureFormatInfo, kQueryTypeInfo, resolvePerAspectFormat } from './capability_info.js';
-import { makeBufferWithContents } from './util/buffer.js';
+import { kQueryTypeInfo } from './capability_info.js';
 import {
-  checkElementsEqual,
-  checkElementsBetween,
-  checkElementsFloat16Between,
-} from './util/check_contents.js';
+  kTextureFormatInfo,
+  kEncodableTextureFormats,
+  resolvePerAspectFormat,
+} from './format_info.js';
+import { makeBufferWithContents } from './util/buffer.js';
+import { checkElementsEqual, checkElementsBetween } from './util/check_contents.js';
 import { CommandBufferMaker } from './util/command_buffer_maker.js';
-import { DevicePool, TestOOMedShouldAttemptGC } from './util/device_pool.js';
+
+import { DevicePool } from './util/device_pool.js';
 import { align, roundDown } from './util/math.js';
-import { makeTextureWithContents } from './util/texture.js';
+import { createTextureFromTexelView, createTextureFromTexelViews } from './util/texture.js';
 import { getTextureCopyLayout, getTextureSubCopyLayout } from './util/texture/layout.js';
 import { kTexelRepresentationInfo } from './util/texture/texel_data.js';
+import { TexelView } from './util/texture/texel_view.js';
+import { textureContentIsOKByT2B } from './util/texture/texture_ok.js';
+import { reifyOrigin3D } from './util/unions.js';
 
 const devicePool = new DevicePool();
 
@@ -27,6 +32,8 @@ const mismatchedDevicePool = new DevicePool();
 const kResourceStateValues = ['valid', 'invalid', 'destroyed'];
 
 export const kResourceStates = kResourceStateValues;
+
+/** Various "convenient" shorthands for GPUDeviceDescriptors for selectDevice functions. */
 
 export function initUncanonicalizedDeviceDescriptor(descriptor) {
   if (typeof descriptor === 'string') {
@@ -40,62 +47,161 @@ export function initUncanonicalizedDeviceDescriptor(descriptor) {
   }
 }
 
-/**
- * Base fixture for WebGPU tests.
- */
-export class GPUTest extends Fixture {
-  /** Must not be replaced once acquired. */
+export class GPUTestSubcaseBatchState extends SubcaseBatchState {
+  /** Provider for default device. */
 
-  // Some tests(e.g. Device mismatched validation) require another GPUDevice
-  // different from the default GPUDevice of GPUTest. It is only used to
-  //create device mismatched objects.
+  /** Provider for mismatched device. */
 
-  /** GPUDevice for the test to use. */
-  get device() {
-    assert(
-      this.provider !== undefined,
-      'No provider available right now; did you "await" selectDeviceOrSkipTestCase?'
-    );
-
-    if (!this.acquiredDevice) {
-      this.acquiredDevice = this.provider.acquire();
-    }
-    return this.acquiredDevice;
+  async postInit() {
+    // Skip all subcases if there's no device.
+    await this.acquireProvider();
   }
 
-  /** GPUDevice for tests requires another device from default one.
-   *  e.g. creating objects required creating mismatched objects required
-   * by device mismatched validation tests.
-   */
-  get mismatchedDevice() {
-    assert(
-      this.mismatchedProvider !== undefined,
-      'No provider available right now; did you "await" selectMismatchedDeviceOrSkipTestCase?'
-    );
+  async finalize() {
+    await super.finalize();
 
-    if (!this.mismatchedAcquiredDevice) {
-      this.mismatchedAcquiredDevice = this.mismatchedProvider.acquire();
+    // Ensure devicePool.release is called for both providers even if one rejects.
+    await Promise.all([
+      this.provider?.then(x => devicePool.release(x)),
+      this.mismatchedProvider?.then(x => devicePool.release(x)),
+    ]);
+  }
+
+  /** @internal MAINTENANCE_TODO: Make this not visible to test code? */
+  acquireProvider() {
+    if (this.provider === undefined) {
+      this.selectDeviceOrSkipTestCase(undefined);
     }
-    return this.mismatchedAcquiredDevice;
+    assert(this.provider !== undefined);
+    return this.provider;
+  }
+
+  get isCompatibility() {
+    return globalTestConfig.compatibility;
   }
 
   /**
-   * Create other device different with current test device, which could be got by `.mismatchedDevice`.
-   * A `descriptor` may be undefined, which returns a `default` mismatched device.
-   * If the request descriptor or feature name can't be supported, throws an exception to skip the entire test case.
+   * Some tests or cases need particular feature flags or limits to be enabled.
+   * Call this function with a descriptor or feature name (or `undefined`) to select a
+   * GPUDevice with matching capabilities. If this isn't called, a default device is provided.
+   *
+   * If the request isn't supported, throws a SkipTestCase exception to skip the entire test case.
    */
-  async selectMismatchedDeviceOrSkipTestCase(descriptor) {
+  selectDeviceOrSkipTestCase(descriptor) {
+    assert(this.provider === undefined, "Can't selectDeviceOrSkipTestCase() multiple times");
+    this.provider = devicePool.acquire(
+      this.recorder,
+      initUncanonicalizedDeviceDescriptor(descriptor)
+    );
+
+    // Suppress uncaught promise rejection (we'll catch it later).
+    this.provider.catch(() => {});
+  }
+
+  /**
+   * Convenience function for {@link selectDeviceOrSkipTestCase}.
+   * Select a device with the features required by these texture format(s).
+   * If the device creation fails, then skip the test case.
+   */
+  selectDeviceForTextureFormatOrSkipTestCase(formats) {
+    if (!Array.isArray(formats)) {
+      formats = [formats];
+    }
+    const features = new Set();
+    for (const format of formats) {
+      if (format !== undefined) {
+        this.skipIfTextureFormatNotSupported(format);
+        features.add(kTextureFormatInfo[format].feature);
+      }
+    }
+
+    this.selectDeviceOrSkipTestCase(Array.from(features));
+  }
+
+  /**
+   * Convenience function for {@link selectDeviceOrSkipTestCase}.
+   * Select a device with the features required by these query type(s).
+   * If the device creation fails, then skip the test case.
+   */
+  selectDeviceForQueryTypeOrSkipTestCase(types) {
+    if (!Array.isArray(types)) {
+      types = [types];
+    }
+    const features = types.map(t => kQueryTypeInfo[t].feature);
+    this.selectDeviceOrSkipTestCase(features);
+  }
+
+  /** @internal MAINTENANCE_TODO: Make this not visible to test code? */
+  acquireMismatchedProvider() {
+    return this.mismatchedProvider;
+  }
+
+  /**
+   * Some tests need a second device which is different from the first.
+   * This requests a second device so it will be available during the test. If it is not called,
+   * no second device will be available.
+   *
+   * If the request isn't supported, throws a SkipTestCase exception to skip the entire test case.
+   */
+  selectMismatchedDeviceOrSkipTestCase(descriptor) {
     assert(
       this.mismatchedProvider === undefined,
       "Can't selectMismatchedDeviceOrSkipTestCase() multiple times"
     );
 
-    this.mismatchedProvider =
-      descriptor === undefined
-        ? await mismatchedDevicePool.reserve()
-        : await mismatchedDevicePool.reserve(initUncanonicalizedDeviceDescriptor(descriptor));
+    this.mismatchedProvider = mismatchedDevicePool.acquire(
+      this.recorder,
+      initUncanonicalizedDeviceDescriptor(descriptor)
+    );
 
-    this.mismatchedAcquiredDevice = this.mismatchedProvider.acquire();
+    // Suppress uncaught promise rejection (we'll catch it later).
+    this.mismatchedProvider.catch(() => {});
+  }
+
+  /** Throws an exception marking the subcase as skipped. */
+  skip(msg) {
+    throw new SkipTestCase(msg);
+  }
+
+  /**
+   * Skips test if any format is not supported.
+   */
+  skipIfTextureFormatNotSupported(...formats) {
+    if (this.isCompatibility) {
+      for (const format of formats) {
+        if (format === 'bgra8unorm-srgb') {
+          this.skip(`texture format '${format} is not supported`);
+        }
+      }
+    }
+  }
+
+  skipIfTextureViewDimensionNotSupported(...dimensions) {
+    if (this.isCompatibility) {
+      for (const dimension of dimensions) {
+        if (dimension === 'cube-array') {
+          this.skip(`texture view dimension '${dimension}' is not supported`);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Base fixture for WebGPU tests.
+ *
+ * This class is a Fixture + a getter that returns a GPUDevice
+ * as well as helpers that use that device.
+ */
+export class GPUTestBase extends Fixture {
+  static MakeSharedState(recorder, params) {
+    return new GPUTestSubcaseBatchState(recorder, params);
+  }
+
+  // This must be overridden in derived classes
+  get device() {
+    unreachable();
+    return null;
   }
 
   /** GPUQueue for the test to use. (Same as `t.device.queue`.) */
@@ -103,119 +209,8 @@ export class GPUTest extends Fixture {
     return this.device.queue;
   }
 
-  async init() {
-    await super.init();
-
-    this.provider = await devicePool.reserve();
-  }
-
-  async finalize() {
-    await super.finalize();
-
-    if (this.provider) {
-      let threw = false;
-      let thrownValue;
-      {
-        const provider = this.provider;
-        this.provider = undefined;
-        try {
-          await devicePool.release(provider);
-        } catch (ex) {
-          threw = true;
-          thrownValue = ex;
-        }
-      }
-      // The GPUDevice and GPUQueue should now have no outstanding references.
-
-      if (threw) {
-        if (thrownValue instanceof TestOOMedShouldAttemptGC) {
-          // Try to clean up, in case there are stray GPU resources in need of collection.
-          await attemptGarbageCollection();
-        }
-        throw thrownValue;
-      }
-    }
-
-    if (this.mismatchedProvider) {
-      // MAINTENANCE_TODO(kainino0x): Deduplicate this with code in GPUTest.finalize
-      let threw = false;
-      let thrownValue;
-      {
-        const provider = this.mismatchedProvider;
-        this.mismatchedProvider = undefined;
-        try {
-          await mismatchedDevicePool.release(provider);
-        } catch (ex) {
-          threw = true;
-          thrownValue = ex;
-        }
-      }
-
-      if (threw) {
-        if (thrownValue instanceof TestOOMedShouldAttemptGC) {
-          // Try to clean up, in case there are stray GPU resources in need of collection.
-          await attemptGarbageCollection();
-        }
-        throw thrownValue;
-      }
-    }
-  }
-
-  /**
-   * When a GPUTest test accesses `.device` for the first time, a "default" GPUDevice
-   * (descriptor = `undefined`) is provided by default.
-   * However, some tests or cases need particular nonGuaranteedFeatures to be enabled.
-   * Call this function with a descriptor or feature name (or `undefined`) to select a
-   * GPUDevice with matching capabilities.
-   *
-   * If the request descriptor can't be supported, throws an exception to skip the entire test case.
-   */
-  async selectDeviceOrSkipTestCase(descriptor) {
-    if (descriptor === undefined) return;
-
-    assert(this.provider !== undefined);
-    // Make sure the device isn't replaced after it's been retrieved once.
-    assert(
-      !this.acquiredDevice,
-      "Can't selectDeviceOrSkipTestCase() after the device has been used"
-    );
-
-    const oldProvider = this.provider;
-    this.provider = undefined;
-    await devicePool.release(oldProvider);
-
-    this.provider = await devicePool.reserve(initUncanonicalizedDeviceDescriptor(descriptor));
-    this.acquiredDevice = this.provider.acquire();
-  }
-
-  /**
-   * Create device with texture format(s) required feature(s).
-   * If the device creation fails, then skip the test for that format(s).
-   */
-  async selectDeviceForTextureFormatOrSkipTestCase(formats) {
-    if (!Array.isArray(formats)) {
-      formats = [formats];
-    }
-    const features = new Set();
-    for (const format of formats) {
-      if (format !== undefined) {
-        features.add(kTextureFormatInfo[format].feature);
-      }
-    }
-
-    await this.selectDeviceOrSkipTestCase(Array.from(features));
-  }
-
-  /**
-   * Create device with query type(s) required feature(s).
-   * If the device creation fails, then skip the test for that type(s).
-   */
-  async selectDeviceForQueryTypeOrSkipTestCase(types) {
-    if (!Array.isArray(types)) {
-      types = [types];
-    }
-    const features = types.map(t => kQueryTypeInfo[t].feature);
-    await this.selectDeviceOrSkipTestCase(features);
+  get isCompatibility() {
+    return globalTestConfig.compatibility;
   }
 
   /** Snapshot a GPUBuffer's contents, returning a new GPUBuffer with the `MAP_READ` usage. */
@@ -227,7 +222,6 @@ export class GPUTest extends Fixture {
       size,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
-
     this.trackForCleanup(dst);
 
     const c = this.device.createCommandEncoder();
@@ -298,6 +292,29 @@ export class GPUTest extends Fixture {
   }
 
   /**
+   * Skips test if any format is not supported.
+   */
+  skipIfTextureFormatNotSupported(...formats) {
+    if (this.isCompatibility) {
+      for (const format of formats) {
+        if (format === 'bgra8unorm-srgb') {
+          this.skip(`texture format '${format} is not supported`);
+        }
+      }
+    }
+  }
+
+  skipIfTextureViewDimensionNotSupported(...dimensions) {
+    if (this.isCompatibility) {
+      for (const dimension of dimensions) {
+        if (dimension === 'cube-array') {
+          this.skip(`texture view dimension '${dimension}' is not supported`);
+        }
+      }
+    }
+  }
+
+  /**
    * Expect a GPUBuffer's contents to pass the provided check.
    *
    * A library of checks can be found in {@link webgpu/util/check_contents}.
@@ -313,7 +330,6 @@ export class GPUTest extends Fixture {
       typedLength,
       method,
     });
-
     this.eventualAsyncExpectation(async niceStack => {
       const readback = await readbackPromise;
       this.expectOK(check(readback.data), { mode, niceStack });
@@ -373,7 +389,6 @@ export class GPUTest extends Fixture {
       size: bufferSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
-
     this.trackForCleanup(storageBuffer);
 
     // This buffer conveys the data we expect to see for a single value read. Since we read 32 bits at
@@ -387,7 +402,6 @@ export class GPUTest extends Fixture {
       usage: GPUBufferUsage.STORAGE,
       mappedAtCreation: true,
     });
-
     this.trackForCleanup(expectedDataBuffer);
     const expectedData = new Uint32Array(expectedDataBuffer.getMappedRange());
     if (valueSize === 1) {
@@ -411,16 +425,15 @@ export class GPUTest extends Fixture {
       size: numRows * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
     });
-
     this.trackForCleanup(resultBuffer);
 
     const readsPerRow = Math.ceil(minBytesPerRow / expectedDataSize);
     const reducer = `
-    struct Buffer { data: array<u32>; };
+    struct Buffer { data: array<u32>, };
     @group(0) @binding(0) var<storage, read> expected: Buffer;
     @group(0) @binding(1) var<storage, read> in: Buffer;
     @group(0) @binding(2) var<storage, read_write> out: Buffer;
-    @stage(compute) @workgroup_size(1) fn reduce(
+    @compute @workgroup_size(1) fn reduce(
         @builtin(global_invocation_id) id: vec3<u32>) {
       let rowBaseIndex = id.x * ${bytesPerRow / 4}u;
       let readSize = ${expectedDataSize / 4}u;
@@ -438,6 +451,7 @@ export class GPUTest extends Fixture {
     `;
 
     const pipeline = this.device.createComputePipeline({
+      layout: 'auto',
       compute: {
         module: this.device.createShaderModule({ code: reducer }),
         entryPoint: 'reduce',
@@ -458,7 +472,7 @@ export class GPUTest extends Fixture {
     const pass = commandEncoder.beginComputePass();
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, bindGroup);
-    pass.dispatch(numRows);
+    pass.dispatchWorkgroups(numRows);
     pass.end();
     this.device.queue.submit([commandEncoder.finish()]);
 
@@ -469,9 +483,15 @@ export class GPUTest extends Fixture {
   // MAINTENANCE_TODO: add an expectContents for textures, which logs data: uris on failure
 
   /**
-   * Expect a whole GPUTexture to have the single provided color.
+   * Expect an entire GPUTexture to have a single color at the given mip level (defaults to 0).
+   * MAINTENANCE_TODO: Remove this and/or replace it with a helper in TextureTestMixin.
    */
   expectSingleColor(src, format, { size, exp, dimension = '2d', slice = 0, layout }) {
+    assert(
+      slice === 0 || dimension === '2d',
+      'texture slices are only implemented for 2d textures'
+    );
+
     format = resolvePerAspectFormat(format, layout?.aspect);
     const { byteLength, minBytesPerRow, bytesPerRow, rowsPerImage, mipSize } = getTextureCopyLayout(
       format,
@@ -480,6 +500,16 @@ export class GPUTest extends Fixture {
       layout
     );
 
+    // MAINTENANCE_TODO: getTextureCopyLayout does not return the proper size for array textures,
+    // i.e. it will leave the z/depth value as is instead of making it 1 when dealing with 2d
+    // texture arrays. Since we are passing in the dimension, we should update it to return the
+    // corrected size.
+    const copySize = [
+      mipSize[0],
+      dimension !== '1d' ? mipSize[1] : 1,
+      dimension === '3d' ? mipSize[2] : 1,
+    ];
+
     const rep = kTexelRepresentationInfo[format];
     const expectedTexelData = rep.pack(rep.encode(exp));
 
@@ -487,7 +517,6 @@ export class GPUTest extends Fixture {
       size: byteLength,
       usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
     });
-
     this.trackForCleanup(buffer);
 
     const commandEncoder = this.device.createCommandEncoder();
@@ -498,22 +527,24 @@ export class GPUTest extends Fixture {
         origin: { x: 0, y: 0, z: slice },
         aspect: layout?.aspect,
       },
-
       { buffer, bytesPerRow, rowsPerImage },
-      mipSize
+      copySize
     );
 
     this.queue.submit([commandEncoder.finish()]);
 
     this.expectGPUBufferRepeatsSingleValue(buffer, {
       expectedValue: expectedTexelData,
-      numRows: rowsPerImage,
+      numRows: rowsPerImage * copySize[2],
       minBytesPerRow,
       bytesPerRow,
     });
   }
 
-  /** Return a GPUBuffer that data are going to be written into. */
+  /**
+   * Return a GPUBuffer that data are going to be written into.
+   * MAINTENANCE_TODO: Remove this once expectSinglePixelBetweenTwoValuesIn2DTexture is removed.
+   */
   readSinglePixelFrom2DTexture(src, format, { x, y }, { slice = 0, layout }) {
     const { byteLength, bytesPerRow, rowsPerImage } = getTextureSubCopyLayout(
       format,
@@ -525,7 +556,6 @@ export class GPUTest extends Fixture {
       size: byteLength,
       usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
     });
-
     this.trackForCleanup(buffer);
 
     const commandEncoder = this.device.createCommandEncoder();
@@ -541,27 +571,10 @@ export class GPUTest extends Fixture {
   }
 
   /**
-   * Expect a single pixel of a 2D texture to have a particular byte representation.
-   *
-   * MAINTENANCE_TODO: Add check for values of depth/stencil, probably through sampling of shader
-   * MAINTENANCE_TODO: Can refactor this and expectSingleColor to use a similar base expect
-   */
-  expectSinglePixelIn2DTexture(
-    src,
-    format,
-    { x, y },
-    { exp, slice = 0, layout, generateWarningOnly = false }
-  ) {
-    const buffer = this.readSinglePixelFrom2DTexture(src, format, { x, y }, { slice, layout });
-    this.expectGPUBufferValuesEqual(buffer, exp, 0, {
-      mode: generateWarningOnly ? 'warn' : 'fail',
-    });
-  }
-
-  /**
    * Take a single pixel of a 2D texture, interpret it using a TypedArray of the `expected` type,
    * and expect each value in that array to be between the corresponding "expected" values
    * (either `a[i] <= actual[i] <= b[i]` or `a[i] >= actual[i] => b[i]`).
+   * MAINTENANCE_TODO: Remove this once there is a way to deal with undefined lerp-ed values.
    */
   expectSinglePixelBetweenTwoValuesIn2DTexture(
     src,
@@ -589,27 +602,85 @@ export class GPUTest extends Fixture {
   }
 
   /**
-   * Equivalent to {@link expectSinglePixelBetweenTwoValuesIn2DTexture} but uses a special check func
-   * to interpret incoming values as float16
+   * Emulate a texture to buffer copy by using a compute shader
+   * to load texture value of a single pixel and write to a storage buffer.
+   * For sample count == 1, the buffer contains only one value of the sample.
+   * For sample count > 1, the buffer contains (N = sampleCount) values sorted
+   * in the order of their sample index [0, sampleCount - 1]
+   *
+   * This can be useful when the texture to buffer copy is not available to the texture format
+   * e.g. (depth24plus), or when the texture is multisampled.
+   *
+   * MAINTENANCE_TODO: extend to read multiple pixels with given origin and size.
+   *
+   * @returns storage buffer containing the copied value from the texture.
    */
-  expectSinglePixelBetweenTwoValuesFloat16In2DTexture(
-    src,
-    format,
-    { x, y },
-    { exp, slice = 0, layout, generateWarningOnly = false }
-  ) {
-    this.expectSinglePixelBetweenTwoValuesIn2DTexture(
-      src,
-      format,
-      { x, y },
-      {
-        exp,
-        slice,
-        layout,
-        generateWarningOnly,
-        checkElementsBetweenFn: checkElementsFloat16Between,
+  copySinglePixelTextureToBufferUsingComputePass(type, componentCount, textureView, sampleCount) {
+    const textureSrcCode =
+      sampleCount === 1
+        ? `@group(0) @binding(0) var src: texture_2d<${type}>;`
+        : `@group(0) @binding(0) var src: texture_multisampled_2d<${type}>;`;
+    const code = `
+      struct Buffer {
+        data: array<${type}>,
+      };
+
+      ${textureSrcCode}
+      @group(0) @binding(1) var<storage, read_write> dst : Buffer;
+
+      @compute @workgroup_size(1) fn main() {
+        var coord = vec2<i32>(0, 0);
+        for (var sampleIndex = 0; sampleIndex < ${sampleCount};
+          sampleIndex = sampleIndex + 1) {
+          let o = sampleIndex * ${componentCount};
+          let v = textureLoad(src, coord, sampleIndex);
+          for (var component = 0; component < ${componentCount}; component = component + 1) {
+            dst.data[o + component] = v[component];
+          }
+        }
       }
-    );
+    `;
+    const computePipeline = this.device.createComputePipeline({
+      layout: 'auto',
+      compute: {
+        module: this.device.createShaderModule({
+          code,
+        }),
+        entryPoint: 'main',
+      },
+    });
+
+    const storageBuffer = this.device.createBuffer({
+      size: sampleCount * type.size * componentCount,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+    this.trackForCleanup(storageBuffer);
+
+    const uniformBindGroup = this.device.createBindGroup({
+      layout: computePipeline.getBindGroupLayout(0),
+      entries: [
+        {
+          binding: 0,
+          resource: textureView,
+        },
+        {
+          binding: 1,
+          resource: {
+            buffer: storageBuffer,
+          },
+        },
+      ],
+    });
+
+    const encoder = this.device.createCommandEncoder();
+    const pass = encoder.beginComputePass();
+    pass.setPipeline(computePipeline);
+    pass.setBindGroup(0, uniformBindGroup);
+    pass.dispatchWorkgroups(1);
+    pass.end();
+    this.device.queue.submit([encoder.finish()]);
+
+    return storageBuffer;
   }
 
   /**
@@ -697,84 +768,12 @@ export class GPUTest extends Fixture {
   }
 
   /**
-   * Expects that the device should be lost for a particular reason at the teardown of the test.
-   */
-  expectDeviceLost(reason) {
-    assert(
-      this.provider !== undefined,
-      'No provider available right now; did you "await" selectDeviceOrSkipTestCase?'
-    );
-
-    this.provider.expectDeviceLost(reason);
-  }
-
-  /**
    * Create a GPUBuffer with the specified contents and usage.
    *
    * MAINTENANCE_TODO: Several call sites would be simplified if this took ArrayBuffer as well.
    */
   makeBufferWithContents(dataArray, usage) {
     return this.trackForCleanup(makeBufferWithContents(this.device, dataArray, usage));
-  }
-
-  /**
-   * Creates a texture with the contents of a TexelView.
-   */
-  makeTextureWithContents(texelView, desc) {
-    return this.trackForCleanup(makeTextureWithContents(this.device, texelView, desc));
-  }
-
-  /**
-   * Create a GPUTexture with multiple mip levels, each having the specified contents.
-   */
-  createTexture2DWithMipmaps(mipmapDataArray) {
-    const format = 'rgba8unorm';
-    const mipLevelCount = mipmapDataArray.length;
-    const textureSizeMipmap0 = 1 << (mipLevelCount - 1);
-    const texture = this.device.createTexture({
-      mipLevelCount,
-      size: { width: textureSizeMipmap0, height: textureSizeMipmap0, depthOrArrayLayers: 1 },
-      format,
-      usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING,
-    });
-
-    this.trackForCleanup(texture);
-
-    const textureEncoder = this.device.createCommandEncoder();
-    for (let i = 0; i < mipLevelCount; i++) {
-      const { byteLength, bytesPerRow, rowsPerImage, mipSize } = getTextureCopyLayout(
-        format,
-        '2d',
-        [textureSizeMipmap0, textureSizeMipmap0, 1],
-        { mipLevel: i }
-      );
-
-      const data = new Uint8Array(byteLength);
-      const mipLevelData = mipmapDataArray[i];
-      assert(rowsPerImage === mipSize[0]); // format is rgba8unorm and block size should be 1
-      for (let r = 0; r < rowsPerImage; r++) {
-        const o = r * bytesPerRow;
-        for (let c = o, end = o + mipSize[1] * 4; c < end; c += 4) {
-          data[c] = mipLevelData[0];
-          data[c + 1] = mipLevelData[1];
-          data[c + 2] = mipLevelData[2];
-          data[c + 3] = mipLevelData[3];
-        }
-      }
-      const buffer = this.makeBufferWithContents(
-        data,
-        GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
-      );
-
-      textureEncoder.copyBufferToTexture(
-        { buffer, bytesPerRow, rowsPerImage },
-        { texture, mipLevel: i, origin: [0, 0, 0] },
-        mipSize
-      );
-    }
-    this.device.queue.submit([textureEncoder.finish()]);
-
-    return texture;
   }
 
   /**
@@ -855,7 +854,6 @@ export class GPUTest extends Fixture {
             depthReadOnly: fullAttachmentInfo.depthReadOnly,
             stencilReadOnly: fullAttachmentInfo.stencilReadOnly,
           };
-
           if (
             kTextureFormatInfo[fullAttachmentInfo.depthStencilFormat].depth &&
             !fullAttachmentInfo.depthReadOnly
@@ -900,4 +898,168 @@ export class GPUTest extends Fixture {
 
     unreachable();
   }
+}
+
+/**
+ * Fixture for WebGPU tests that uses a DeviceProvider
+ */
+export class GPUTest extends GPUTestBase {
+  // Should never be undefined in a test. If it is, init() must not have run/finished.
+
+  async init() {
+    await super.init();
+
+    this.provider = await this.sharedState.acquireProvider();
+    this.mismatchedProvider = await this.sharedState.acquireMismatchedProvider();
+  }
+
+  /**
+   * GPUDevice for the test to use.
+   */
+  get device() {
+    assert(this.provider !== undefined, 'internal error: GPUDevice missing?');
+    return this.provider.device;
+  }
+
+  /**
+   * GPUDevice for tests requiring a second device different from the default one,
+   * e.g. for creating objects for by device_mismatch validation tests.
+   */
+  get mismatchedDevice() {
+    assert(
+      this.mismatchedProvider !== undefined,
+      'selectMismatchedDeviceOrSkipTestCase was not called in beforeAllSubcases'
+    );
+
+    return this.mismatchedProvider.device;
+  }
+
+  /**
+   * Expects that the device should be lost for a particular reason at the teardown of the test.
+   */
+  expectDeviceLost(reason) {
+    assert(this.provider !== undefined, 'internal error: GPUDevice missing?');
+    this.provider.expectDeviceLost(reason);
+  }
+}
+
+/**
+ * Texture expectation mixin can be applied on top of GPUTest to add texture
+ * related expectation helpers.
+ */
+
+export function TextureTestMixin(Base) {
+  class TextureExpectations extends Base {
+    createTextureFromTexelView(texelView, desc) {
+      return this.trackForCleanup(createTextureFromTexelView(this.device, texelView, desc));
+    }
+
+    createTextureFromTexelViewsMultipleMipmaps(texelViews, desc) {
+      return this.trackForCleanup(createTextureFromTexelViews(this.device, texelViews, desc));
+    }
+
+    expectTexelViewComparisonIsOkInTexture(
+      src,
+      exp,
+      size,
+      comparisonOptions = {
+        maxIntDiff: 0,
+        maxDiffULPsForNormFormat: 1,
+        maxDiffULPsForFloatFormat: 1,
+      }
+    ) {
+      this.eventualExpectOK(
+        textureContentIsOKByT2B(this, src, size, { expTexelView: exp }, comparisonOptions)
+      );
+    }
+
+    expectSinglePixelComparisonsAreOkInTexture(
+      src,
+      exp,
+      comparisonOptions = {
+        maxIntDiff: 0,
+        maxDiffULPsForNormFormat: 1,
+        maxDiffULPsForFloatFormat: 1,
+      }
+    ) {
+      assert(exp.length > 0, 'must specify at least one pixel comparison');
+      assert(
+        kEncodableTextureFormats.includes(src.texture.format),
+        () => `${src.texture.format} is not an encodable format`
+      );
+
+      const lowerCorner = [src.texture.width, src.texture.height, src.texture.depthOrArrayLayers];
+      const upperCorner = [0, 0, 0];
+      const expMap = new Map();
+      const coords = [];
+      for (const e of exp) {
+        const coord = reifyOrigin3D(e.coord);
+        const coordKey = JSON.stringify(coord);
+        coords.push(coord);
+
+        // Compute the minimum sub-rect that encompasses all the pixel comparisons. The
+        // `lowerCorner` will become the origin, and the `upperCorner` will be used to compute the
+        // size.
+        lowerCorner[0] = Math.min(lowerCorner[0], coord.x);
+        lowerCorner[1] = Math.min(lowerCorner[1], coord.y);
+        lowerCorner[2] = Math.min(lowerCorner[2], coord.z);
+        upperCorner[0] = Math.max(upperCorner[0], coord.x);
+        upperCorner[1] = Math.max(upperCorner[1], coord.y);
+        upperCorner[2] = Math.max(upperCorner[2], coord.z);
+
+        // Build a sparse map of the coordinates to the expected colors for the texel view.
+        assert(
+          !expMap.has(coordKey),
+          () => `duplicate pixel expectation at coordinate (${coord.x},${coord.y},${coord.z})`
+        );
+
+        expMap.set(coordKey, e.exp);
+      }
+      const size = [
+        upperCorner[0] - lowerCorner[0] + 1,
+        upperCorner[1] - lowerCorner[1] + 1,
+        upperCorner[2] - lowerCorner[2] + 1,
+      ];
+
+      let expTexelView;
+      if (Symbol.iterator in exp[0].exp) {
+        expTexelView = TexelView.fromTexelsAsBytes(src.texture.format, coord => {
+          const res = expMap.get(JSON.stringify(coord));
+          assert(
+            res !== undefined,
+            () => `invalid coordinate (${coord.x},${coord.y},${coord.z}) in sparse texel view`
+          );
+
+          return res;
+        });
+      } else {
+        expTexelView = TexelView.fromTexelsAsColors(src.texture.format, coord => {
+          const res = expMap.get(JSON.stringify(coord));
+          assert(
+            res !== undefined,
+            () => `invalid coordinate (${coord.x},${coord.y},${coord.z}) in sparse texel view`
+          );
+
+          return res;
+        });
+      }
+      const coordsF = (function* () {
+        for (const coord of coords) {
+          yield coord;
+        }
+      })();
+
+      this.eventualExpectOK(
+        textureContentIsOKByT2B(
+          this,
+          { ...src, origin: reifyOrigin3D(lowerCorner) },
+          size,
+          { expTexelView },
+          comparisonOptions,
+          coordsF
+        )
+      );
+    }
+  }
+  return TextureExpectations;
 }

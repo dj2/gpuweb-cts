@@ -1,6 +1,6 @@
 /**
 * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
-**/import { assert, unreachable } from '../../../common/util/util.js';import { kTextureFormatInfo } from '../../capability_info.js';import { gammaDecompress, float32ToFloat16Bits } from '../../util/conversion.js';
+**/import { assert, unreachable } from '../../../common/util/util.js';import { kTextureFormatInfo } from '../../format_info.js';import { gammaDecompress, float32ToFloat16Bits } from '../../util/conversion.js';
 import { align } from '../../util/math.js';
 
 import { runRefTest } from './gpu_ref_test.js';
@@ -43,7 +43,7 @@ targets)
 
     function copyBufferToTexture(ctx) {
       const rows = ctx.canvas.height;
-      const bytesPerPixel = kTextureFormatInfo[format].bytesPerBlock;
+      const bytesPerPixel = kTextureFormatInfo[format].color.bytes;
       if (bytesPerPixel === undefined) {
         unreachable();
       }
@@ -53,8 +53,8 @@ targets)
       const buffer = t.device.createBuffer({
         mappedAtCreation: true,
         size: rows * bytesPerRow,
-        usage: GPUBufferUsage.COPY_SRC });
-
+        usage: GPUBufferUsage.COPY_SRC
+      });
       let red;
       let green;
       let blue;
@@ -176,8 +176,8 @@ targets)
         GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.RENDER_ATTACHMENT |
         GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.COPY_SRC });
-
+        GPUTextureUsage.COPY_SRC
+      });
       t.device.queue.copyExternalImageToTexture({ source: imageBitmap }, { texture: srcTexture }, [
       imageBitmap.width,
       imageBitmap.height]);
@@ -212,15 +212,16 @@ targets)
       const srcTexture = setupSrcTexture(imageBitmap);
 
       const pipeline = t.device.createRenderPipeline({
+        layout: 'auto',
         vertex: {
           module: t.device.createShaderModule({
             code: `
 struct VertexOutput {
-  @builtin(position) Position : vec4<f32>;
-  @location(0) fragUV : vec2<f32>;
-};
+  @builtin(position) Position : vec4<f32>,
+  @location(0) fragUV : vec2<f32>,
+}
 
-@stage(vertex)
+@vertex
 fn main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   var pos = array<vec2<f32>, 6>(
       vec2<f32>( 1.0,  1.0),
@@ -243,10 +244,10 @@ fn main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   output.fragUV = uv[VertexIndex];
   return output;
 }
-            ` }),
-
-          entryPoint: 'main' },
-
+            `
+          }),
+          entryPoint: 'main'
+        },
         fragment: {
           module: t.device.createShaderModule({
             // NOTE: "-srgb" cases haven't been tested (there aren't any .html files that use them).
@@ -265,7 +266,7 @@ fn gammaDecompress(n: f32) -> f32 {
   return r;
 }
 
-@stage(fragment)
+@fragment
 fn srgbMain(@location(0) fragUV: vec2<f32>) -> @location(0) vec4<f32> {
   var result = textureSample(myTexture, mySampler, fragUV);
   result.r = gammaDecompress(result.r);
@@ -274,38 +275,38 @@ fn srgbMain(@location(0) fragUV: vec2<f32>) -> @location(0) vec4<f32> {
   return result;
 }
 
-@stage(fragment)
+@fragment
 fn linearMain(@location(0) fragUV: vec2<f32>) -> @location(0) vec4<f32> {
   return textureSample(myTexture, mySampler, fragUV);
 }
-            ` }),
-
+            `
+          }),
           entryPoint: isOutputSrgb ? 'srgbMain' : 'linearMain',
-          targets: [{ format }] },
-
+          targets: [{ format }]
+        },
         primitive: {
-          topology: 'triangle-list' } });
-
-
+          topology: 'triangle-list'
+        }
+      });
 
       const sampler = t.device.createSampler({
         magFilter: 'nearest',
-        minFilter: 'nearest' });
-
+        minFilter: 'nearest'
+      });
 
       const uniformBindGroup = t.device.createBindGroup({
         layout: pipeline.getBindGroupLayout(0),
         entries: [
         {
           binding: 0,
-          resource: sampler },
-
+          resource: sampler
+        },
         {
           binding: 1,
-          resource: srcTexture.createView() }] });
+          resource: srcTexture.createView()
+        }]
 
-
-
+      });
 
       const renderPassDescriptor = {
         colorAttachments: [
@@ -314,10 +315,10 @@ fn linearMain(@location(0) fragUV: vec2<f32>) -> @location(0) vec4<f32> {
 
           clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
           loadOp: 'clear',
-          storeOp: 'store' }] };
+          storeOp: 'store'
+        }]
 
-
-
+      };
 
       const commandEncoder = t.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -330,15 +331,16 @@ fn linearMain(@location(0) fragUV: vec2<f32>) -> @location(0) vec4<f32> {
 
     function DrawVertexColor(ctx) {
       const pipeline = t.device.createRenderPipeline({
+        layout: 'auto',
         vertex: {
           module: t.device.createShaderModule({
             code: `
 struct VertexOutput {
-  @builtin(position) Position : vec4<f32>;
-  @location(0) fragColor : vec4<f32>;
-};
+  @builtin(position) Position : vec4<f32>,
+  @location(0) fragColor : vec4<f32>,
+}
 
-@stage(vertex)
+@vertex
 fn main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   var pos = array<vec2<f32>, 6>(
       vec2<f32>( 0.5,  0.5),
@@ -365,26 +367,26 @@ fn main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   output.fragColor = color[VertexIndex / 6u];
   return output;
 }
-            ` }),
-
-          entryPoint: 'main' },
-
+            `
+          }),
+          entryPoint: 'main'
+        },
         fragment: {
           module: t.device.createShaderModule({
             code: `
-@stage(fragment)
+@fragment
 fn main(@location(0) fragColor: vec4<f32>) -> @location(0) vec4<f32> {
   return fragColor;
 }
-            ` }),
-
+            `
+          }),
           entryPoint: 'main',
-          targets: [{ format }] },
-
+          targets: [{ format }]
+        },
         primitive: {
-          topology: 'triangle-list' } });
-
-
+          topology: 'triangle-list'
+        }
+      });
 
       const renderPassDescriptor = {
         colorAttachments: [
@@ -393,10 +395,10 @@ fn main(@location(0) fragColor: vec4<f32>) -> @location(0) vec4<f32> {
 
           clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
           loadOp: 'clear',
-          storeOp: 'store' }] };
+          storeOp: 'store'
+        }]
 
-
-
+      };
 
       const commandEncoder = t.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -410,14 +412,15 @@ fn main(@location(0) fragColor: vec4<f32>) -> @location(0) vec4<f32> {
       const halfCanvasWidthStr = (ctx.canvas.width / 2).toFixed();
       const halfCanvasHeightStr = (ctx.canvas.height / 2).toFixed();
       const pipeline = t.device.createRenderPipeline({
+        layout: 'auto',
         vertex: {
           module: t.device.createShaderModule({
             code: `
 struct VertexOutput {
-  @builtin(position) Position : vec4<f32>;
-};
+  @builtin(position) Position : vec4<f32>
+}
 
-@stage(vertex)
+@vertex
 fn main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   var pos = array<vec2<f32>, 6>(
       vec2<f32>( 1.0,  1.0),
@@ -431,17 +434,17 @@ fn main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   output.Position = vec4<f32>(pos[VertexIndex], 0.0, 1.0);
   return output;
 }
-            ` }),
-
-          entryPoint: 'main' },
-
+            `
+          }),
+          entryPoint: 'main'
+        },
         fragment: {
           module: t.device.createShaderModule({
             code: `
 @group(0) @binding(0) var mySampler: sampler;
 @group(0) @binding(1) var myTexture: texture_2d<f32>;
 
-@stage(fragment)
+@fragment
 fn main(@builtin(position) fragcoord: vec4<f32>) -> @location(0) vec4<f32> {
   var coord = vec2<u32>(floor(fragcoord.xy));
   var color = vec4<f32>(0.0, 0.0, 0.0, 1.0);
@@ -461,15 +464,15 @@ fn main(@builtin(position) fragcoord: vec4<f32>) -> @location(0) vec4<f32> {
   }
   return color;
 }
-            ` }),
-
+            `
+          }),
           entryPoint: 'main',
-          targets: [{ format }] },
-
+          targets: [{ format }]
+        },
         primitive: {
-          topology: 'triangle-list' } });
-
-
+          topology: 'triangle-list'
+        }
+      });
 
       const renderPassDescriptor = {
         colorAttachments: [
@@ -478,10 +481,10 @@ fn main(@builtin(position) fragcoord: vec4<f32>) -> @location(0) vec4<f32> {
 
           clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
           loadOp: 'clear',
-          storeOp: 'store' }] };
+          storeOp: 'store'
+        }]
 
-
-
+      };
 
       const commandEncoder = t.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -495,14 +498,15 @@ fn main(@builtin(position) fragcoord: vec4<f32>) -> @location(0) vec4<f32> {
       const halfCanvasWidthStr = (ctx.canvas.width / 2).toFixed();
       const halfCanvasHeightStr = (ctx.canvas.height / 2).toFixed();
       const pipeline = t.device.createRenderPipeline({
+        layout: 'auto',
         vertex: {
           module: t.device.createShaderModule({
             code: `
 struct VertexOutput {
-  @builtin(position) Position : vec4<f32>;
-};
+  @builtin(position) Position : vec4<f32>
+}
 
-@stage(vertex)
+@vertex
 fn main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   var pos = array<vec2<f32>, 6>(
       vec2<f32>( 1.0,  1.0),
@@ -516,16 +520,16 @@ fn main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   output.Position = vec4<f32>(pos[VertexIndex], 0.0, 1.0);
   return output;
 }
-            ` }),
-
-          entryPoint: 'main' },
-
+            `
+          }),
+          entryPoint: 'main'
+        },
         fragment: {
           module: t.device.createShaderModule({
             code: `
 @group(0) @binding(0) var outImage : texture_storage_2d<${format}, write>;
 
-@stage(fragment)
+@fragment
 fn main(@builtin(position) fragcoord: vec4<f32>) -> @location(0) vec4<f32> {
   var coord = vec2<u32>(floor(fragcoord.xy));
   var color = vec4<f32>(0.0, 0.0, 0.0, 1.0);
@@ -546,38 +550,38 @@ fn main(@builtin(position) fragcoord: vec4<f32>) -> @location(0) vec4<f32> {
   textureStore(outImage, vec2<i32>(coord), color);
   return color;
 }
-            ` }),
-
+            `
+          }),
           entryPoint: 'main',
-          targets: [{ format }] },
-
+          targets: [{ format }]
+        },
         primitive: {
-          topology: 'triangle-list' } });
-
-
+          topology: 'triangle-list'
+        }
+      });
 
       const bg = t.device.createBindGroup({
         entries: [{ binding: 0, resource: ctx.getCurrentTexture().createView() }],
-        layout: pipeline.getBindGroupLayout(0) });
-
+        layout: pipeline.getBindGroupLayout(0)
+      });
 
       const outputTexture = t.device.createTexture({
         format,
         size: [ctx.canvas.width, ctx.canvas.height, 1],
-        usage: GPUTextureUsage.RENDER_ATTACHMENT });
-
+        usage: GPUTextureUsage.RENDER_ATTACHMENT
+      });
 
       const renderPassDescriptor = {
         colorAttachments: [
         {
           view: outputTexture.createView(),
 
-          loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+          clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
           loadOp: 'clear',
-          storeOp: 'store' }] };
+          storeOp: 'store'
+        }]
 
-
-
+      };
 
       const commandEncoder = t.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -592,12 +596,13 @@ fn main(@builtin(position) fragcoord: vec4<f32>) -> @location(0) vec4<f32> {
       const halfCanvasWidthStr = (ctx.canvas.width / 2).toFixed();
       const halfCanvasHeightStr = (ctx.canvas.height / 2).toFixed();
       const pipeline = t.device.createComputePipeline({
+        layout: 'auto',
         compute: {
           module: t.device.createShaderModule({
             code: `
 @group(0) @binding(0) var outImage : texture_storage_2d<${format}, write>;
 
-@stage(compute) @workgroup_size(1, 1, 1)
+@compute @workgroup_size(1, 1, 1)
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   var color = vec4<f32>(0.0, 0.0, 0.0, 1.0);
   if (GlobalInvocationID.x < ${halfCanvasWidthStr}u) {
@@ -617,22 +622,22 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   textureStore(outImage, vec2<i32>(GlobalInvocationID.xy), color);
   return;
 }
-          ` }),
-
-          entryPoint: 'main' } });
-
-
+          `
+          }),
+          entryPoint: 'main'
+        }
+      });
 
       const bg = t.device.createBindGroup({
         entries: [{ binding: 0, resource: ctx.getCurrentTexture().createView() }],
-        layout: pipeline.getBindGroupLayout(0) });
-
+        layout: pipeline.getBindGroupLayout(0)
+      });
 
       const encoder = t.device.createCommandEncoder();
       const pass = encoder.beginComputePass();
       pass.setPipeline(pipeline);
       pass.setBindGroup(0, bg);
-      pass.dispatch(ctx.canvas.width, ctx.canvas.height, 1);
+      pass.dispatchWorkgroups(ctx.canvas.width, ctx.canvas.height, 1);
       pass.end();
       t.device.queue.submit([encoder.finish()]);
     }
@@ -643,12 +648,13 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
       const halfCanvasWidthStr = (ctx.canvas.width / 2).toFixed();
       const halfCanvasHeightStr = (ctx.canvas.height / 2).toFixed();
       const pipeline = t.device.createComputePipeline({
+        layout: 'auto',
         compute: {
           module: t.device.createShaderModule({
             code: `
 @group(0) @binding(0) var outImage : texture_storage_2d<${format}, write>;
 
-@stage(compute) @workgroup_size(16, 16, 1)
+@compute @workgroup_size(16, 16, 1)
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   if (GlobalInvocationID.x >= ${canvasWidthStr}u ||
       GlobalInvocationID.y >= ${canvasHeightStr}u) {
@@ -672,29 +678,33 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   textureStore(outImage, vec2<i32>(GlobalInvocationID.xy), color);
   return;
 }
-            ` }),
-
-          entryPoint: 'main' } });
-
-
+            `
+          }),
+          entryPoint: 'main'
+        }
+      });
 
       const bg = t.device.createBindGroup({
         entries: [{ binding: 0, resource: ctx.getCurrentTexture().createView() }],
-        layout: pipeline.getBindGroupLayout(0) });
-
+        layout: pipeline.getBindGroupLayout(0)
+      });
 
       const encoder = t.device.createCommandEncoder();
       const pass = encoder.beginComputePass();
       pass.setPipeline(pipeline);
       pass.setBindGroup(0, bg);
-      pass.dispatch(align(ctx.canvas.width, 16) / 16, align(ctx.canvas.height, 16) / 16, 1);
+      pass.dispatchWorkgroups(
+      align(ctx.canvas.width, 16) / 16,
+      align(ctx.canvas.height, 16) / 16,
+      1);
+
       pass.end();
       t.device.queue.submit([encoder.finish()]);
     }
 
     for (const { cvs, writeCanvasMethod } of targets) {
       const ctx = cvs.getContext('webgpu');
-      assert(ctx !== null, 'Failed to get WebGPU context from canvas');
+      assert(ctx instanceof GPUCanvasContext, 'Failed to get WebGPU context from canvas');
 
       let usage;
       switch (writeCanvasMethod) {
@@ -722,8 +732,8 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
       ctx.configure({
         device: t.device,
         format,
-        usage });
-
+        usage
+      });
 
       switch (writeCanvasMethod) {
         case 'copyBufferToTexture':
