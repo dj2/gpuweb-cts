@@ -16,9 +16,11 @@ import { fpTraitsFor } from '../../../../../util/floating_point.js';
 import { ShaderValidationTest } from '../../../shader_validation_test.js';
 
 import {
+  fullRangeForType,
   kConstantAndOverrideStages,
   kMinus3PiTo3Pi,
   stageSupportsType,
+  unique,
   validateConstOrOverrideBuiltinEval,
 } from './const_override_validation.js';
 
@@ -35,7 +37,7 @@ Validates that constant evaluation and override evaluation of ${builtin}() rejec
       .combine('stage', kConstantAndOverrideStages)
       .combine('type', kAllFloatScalarsAndVectors)
       .filter(u => stageSupportsType(u.stage, u.type))
-      .combine('value', kMinus3PiTo3Pi)
+      .expand('value', u => unique(kMinus3PiTo3Pi, fullRangeForType(u.type)))
   )
   .beforeAllSubcases(t => {
     if (elementType(t.params.type) === TypeF16) {
@@ -43,14 +45,13 @@ Validates that constant evaluation and override evaluation of ${builtin}() rejec
     }
   })
   .fn(t => {
-    const smallestPositive = fpTraitsFor(t.params.type).constants().positive.min;
+    const smallestPositive = fpTraitsFor(elementType(t.params.type)).constants().positive.min;
     const expectedResult = Math.abs(Math.cos(t.params.value)) > smallestPositive;
     validateConstOrOverrideBuiltinEval(
       t,
       builtin,
       expectedResult,
-      t.params.value,
-      t.params.type,
+      [t.params.type.create(t.params.value)],
       t.params.stage
     );
   });
@@ -67,8 +68,7 @@ Validates that scalar and vector integer arguments are rejected by ${builtin}()
       t,
       builtin,
       /* expectedResult */ t.params.type === TypeF32,
-      /* value */ 0,
-      t.params.type,
+      [t.params.type.create(0)],
       'constant'
     );
   });
