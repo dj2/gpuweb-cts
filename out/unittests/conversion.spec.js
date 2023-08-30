@@ -19,6 +19,7 @@ i32,
 kFloat16Format,
 kFloat32Format,
 Matrix,
+numbersApproximatelyEqual,
 pack2x16float,
 pack2x16snorm,
 pack2x16unorm,
@@ -39,31 +40,34 @@ import { UnitTest } from './unit_test.js';
 
 export const g = makeTestGroup(UnitTest);
 
-const cases = [
+const kFloat16BitsToNumberCases = [
 [0b0_01111_0000000000, 1],
 [0b0_00001_0000000000, 0.00006103515625],
 [0b0_01101_0101010101, 0.33325195],
 [0b0_11110_1111111111, 65504],
 [0b0_00000_0000000000, 0],
+[0b1_00000_0000000000, -0.0], // -0.0 compares as equal to 0.0
 [0b0_01110_0000000000, 0.5],
 [0b0_01100_1001100110, 0.1999512],
 [0b0_01111_0000000001, 1.00097656],
 [0b0_10101_1001000000, 100],
 [0b1_01100_1001100110, -0.1999512],
-[0b1_10101_1001000000, -100]];
+[0b1_10101_1001000000, -100],
+[0b0_11111_1111111111, Number.NaN],
+[0b0_11111_0000000000, Number.POSITIVE_INFINITY],
+[0b1_11111_0000000000, Number.NEGATIVE_INFINITY]];
 
 
 g.test('float16BitsToFloat32').fn((t) => {
   for (const [bits, number] of [
-  ...cases,
-  [0b1_00000_0000000000, -0], // (resulting sign is not actually tested)
+  ...kFloat16BitsToNumberCases,
   [0b0_00000_1111111111, 0.00006104], // subnormal f16 input
   [0b1_00000_1111111111, -0.00006104]])
   {
     const actual = float16BitsToFloat32(bits);
     t.expect(
     // some loose check
-    Math.abs(actual - number) <= 0.00001,
+    numbersApproximatelyEqual(actual, number, 0.00001),
     `for ${bits.toString(2)}, expected ${number}, got ${actual}`);
 
   }
@@ -71,7 +75,7 @@ g.test('float16BitsToFloat32').fn((t) => {
 
 g.test('float32ToFloat16Bits').fn((t) => {
   for (const [bits, number] of [
-  ...cases,
+  ...kFloat16BitsToNumberCases,
   [0b0_00000_0000000000, 0.00001], // input that becomes subnormal in f16 is rounded to 0
   [0b1_00000_0000000000, -0.00001] // and sign is preserved
   ]) {
@@ -95,11 +99,14 @@ fn((t) => {
   const { signed, exponentBits, mantissaBits } = t.params;
   const bias = (1 << exponentBits - 1) - 1;
 
-  for (const [, value] of cases) {
+  for (const [, value] of kFloat16BitsToNumberCases) {
     if (value < 0 && signed === 0) continue;
     const bits = float32ToFloatBits(value, signed, exponentBits, mantissaBits, bias);
     const reconstituted = floatBitsToNumber(bits, { signed, exponentBits, mantissaBits, bias });
-    t.expect(Math.abs(reconstituted - value) <= 0.0000001, `${reconstituted} vs ${value}`);
+    t.expect(
+    numbersApproximatelyEqual(reconstituted, value, 0.0000001),
+    `${reconstituted} vs ${value}`);
+
   }
 });
 
@@ -108,6 +115,7 @@ g.test('floatBitsToULPFromZero,16').fn((t) => {
   t.expect(floatBitsToNormalULPFromZero(bits, kFloat16Format) === ulpFromZero, bits.toString(2));
   // Zero
   test(0b0_00000_0000000000, 0);
+  test(0b1_00000_0000000000, 0);
   // Subnormal
   test(0b0_00000_0000000001, 0);
   test(0b1_00000_0000000001, 0);
@@ -146,6 +154,7 @@ g.test('floatBitsToULPFromZero,32').fn((t) => {
   t.expect(floatBitsToNormalULPFromZero(bits, kFloat32Format) === ulpFromZero, bits.toString(2));
   // Zero
   test(0b0_00000000_00000000000000000000000, 0);
+  test(0b1_00000000_00000000000000000000000, 0);
   // Subnormal
   test(0b0_00000000_00000000000000000000001, 0);
   test(0b1_00000000_00000000000000000000001, 0);
@@ -184,6 +193,11 @@ g.test('floatBitsToULPFromZero,32').fn((t) => {
 g.test('scalarWGSL').fn((t) => {
   const cases = [
   [f32(0.0), '0.0f'],
+  // The number -0.0 can be remapped to 0.0 when stored in a Scalar
+  // object. It is not possible to guarantee that '-0.0f' will
+  // be emitted. So the WGSL scalar value printing does not try
+  // to handle this case.
+  [f32(-0.0), '0.0f'], // -0.0 can be remapped to 0.0
   [f32(1.0), '1.0f'],
   [f32(-1.0), '-1.0f'],
   [f32Bits(0x70000000), '1.5845632502852868e+29f'],

@@ -1588,6 +1588,62 @@ export const listing = [
   },
   {
     "file": [
+      "compat",
+      "api",
+      "validation",
+      "encoding",
+      "cmds",
+      "copyTextureToBuffer"
+    ]
+  },
+  {
+    "file": [
+      "compat",
+      "api",
+      "validation",
+      "encoding",
+      "programmable",
+      "pipeline_bind_group_compat"
+    ]
+  },
+  {
+    "file": [
+      "compat",
+      "api",
+      "validation",
+      "render_pipeline",
+      "fragment_state"
+    ]
+  },
+  {
+    "file": [
+      "compat",
+      "api",
+      "validation",
+      "render_pipeline",
+      "shader_module"
+    ]
+  },
+  {
+    "file": [
+      "compat",
+      "api",
+      "validation",
+      "texture",
+      "createTexture"
+    ]
+  },
+  {
+    "file": [
+      "compat",
+      "api",
+      "validation",
+      "texture",
+      "cubeArray"
+    ]
+  },
+  {
+    "file": [
       "examples"
     ]
   },
@@ -1623,6 +1679,15 @@ export const listing = [
       "execution",
       "expression",
       "binary",
+      "af_comparison"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "binary",
       "bitwise"
     ]
   },
@@ -1650,7 +1715,43 @@ export const listing = [
       "execution",
       "expression",
       "binary",
+      "f16_addition"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "binary",
       "f16_comparison"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "binary",
+      "f16_division"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "binary",
+      "f16_multiplication"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "binary",
+      "f16_subtraction"
     ]
   },
   {
@@ -2905,7 +3006,7 @@ export const listing = [
       "execution",
       "expression",
       "unary",
-      "abstract_float_assignment"
+      "af_assignment"
     ]
   },
   {
@@ -3210,6 +3311,14 @@ export const listing = [
       "shader",
       "validation",
       "decl",
+      "ptr_spelling"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "decl",
       "var_access_mode"
     ]
   },
@@ -3289,6 +3398,16 @@ export const listing = [
       "call",
       "builtin",
       "atan"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "atan2"
     ]
   },
   {
@@ -3614,6 +3733,14 @@ export const listing = [
       "shader",
       "validation",
       "parse",
+      "diagnostic"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "parse",
       "discard"
     ]
   },
@@ -3639,6 +3766,14 @@ export const listing = [
       "validation",
       "parse",
       "literal"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "parse",
+      "must_use"
     ]
   },
   {
@@ -3679,14 +3814,6 @@ export const listing = [
       "validation",
       "parse",
       "var_and_let"
-    ]
-  },
-  {
-    "file": [
-      "shader",
-      "validation",
-      "resource_interface",
-      "bindings"
     ]
   },
   {
@@ -3759,6 +3886,14 @@ export const listing = [
       "validation",
       "shader_io",
       "locations"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "shader_io",
+      "size"
     ]
   },
   {
@@ -3873,6 +4008,13 @@ export const listing = [
   {
     "file": [
       "web_platform",
+      "copyToTexture",
+      "ImageData"
+    ]
+  },
+  {
+    "file": [
+      "web_platform",
       "copyToTexture"
     ],
     "readme": "Tests for copyToTexture from all possible sources (video, canvas, ImageBitmap, ...)"
@@ -3882,6 +4024,13 @@ export const listing = [
       "web_platform",
       "copyToTexture",
       "canvas"
+    ]
+  },
+  {
+    "file": [
+      "web_platform",
+      "copyToTexture",
+      "image"
     ]
   },
   {

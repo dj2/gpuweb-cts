@@ -9,7 +9,8 @@ clamp,
 correctlyRoundedF16,
 isFiniteF16,
 isSubnormalNumberF16,
-isSubnormalNumberF32 } from
+isSubnormalNumberF32,
+isSubnormalNumberF64 } from
 './math.js';
 
 /**
@@ -52,6 +53,20 @@ export function normalizedIntegerAsFloat(integer, bits, signed) {
 }
 
 /**
+ * Compares 2 numbers. Returns true if their absolute value is
+ * less than or equal to maxDiff or if they are both NaN or the
+ * same sign infinity.
+ */
+export function numbersApproximatelyEqual(a, b, maxDiff = 0) {
+  return (
+    Number.isNaN(a) && Number.isNaN(b) ||
+    a === Number.POSITIVE_INFINITY && b === Number.POSITIVE_INFINITY ||
+    a === Number.NEGATIVE_INFINITY && b === Number.NEGATIVE_INFINITY ||
+    Math.abs(a - b) <= maxDiff);
+
+}
+
+/**
  * Encodes a JS `number` into an IEEE754 floating point number with the specified number of
  * sign, exponent, mantissa bits, and exponent bias.
  * Returns the result as an integer-valued JS `number`.
@@ -70,14 +85,10 @@ bias)
 {
   assert(exponentBits <= 8);
   assert(mantissaBits <= 23);
-  assert(Number.isFinite(n));
 
-  if (n === 0) {
-    return 0;
-  }
-
-  if (signBits === 0) {
-    assert(n >= 0);
+  if (Number.isNaN(n)) {
+    // NaN = all exponent bits true, 1 or more mantissia bits true
+    return (1 << exponentBits) - 1 << mantissaBits | (1 << mantissaBits) - 1;
   }
 
   const buf = new DataView(new ArrayBuffer(Float32Array.BYTES_PER_ELEMENT));
@@ -85,10 +96,30 @@ bias)
   const bits = buf.getUint32(0, true);
   // bits (32): seeeeeeeefffffffffffffffffffffff
 
-  const mantissaBitsToDiscard = 23 - mantissaBits;
-
   // 0 or 1
   const sign = bits >> 31 & signBits;
+
+  if (n === 0) {
+    if (sign === 1) {
+      // Handle negative zero.
+      return 1 << exponentBits + mantissaBits;
+    }
+    return 0;
+  }
+
+  if (signBits === 0) {
+    assert(n >= 0);
+  }
+
+  if (!Number.isFinite(n)) {
+    // Infinity = all exponent bits true, no mantissa bits true
+    // plus the sign bit.
+    return (
+      (1 << exponentBits) - 1 << mantissaBits | (n < 0 ? 2 ** (exponentBits + mantissaBits) : 0));
+
+  }
+
+  const mantissaBitsToDiscard = 23 - mantissaBits;
 
   // >> to remove mantissa, & to remove sign, - 127 to remove bias.
   const exp = (bits >> 23 & 0xff) - 127;
@@ -131,6 +162,8 @@ export function float16BitsToFloat32(float16Bits) {
 export const kFloat32Format = { signed: 1, exponentBits: 8, mantissaBits: 23, bias: 127 };
 /** FloatFormat defining IEEE754 16-bit float. */
 export const kFloat16Format = { signed: 1, exponentBits: 5, mantissaBits: 10, bias: 15 };
+/** FloatFormat for 9 bit mantissa, 5 bit exponent unsigned float */
+export const kUFloat9e5Format = { signed: 0, exponentBits: 5, mantissaBits: 9, bias: 15 };
 
 /**
  * Once-allocated ArrayBuffer/views to avoid overhead of allocation when converting between numeric formats
@@ -172,11 +205,41 @@ export function floatBitsToNumber(bits, fmt) {
 
   const kNonSignBits = fmt.exponentBits + fmt.mantissaBits;
   const kNonSignBitsMask = (1 << kNonSignBits) - 1;
-  const expAndMantBits = bits & kNonSignBitsMask;
-  let f32BitsWithWrongBias = expAndMantBits << kFloat32Format.mantissaBits - fmt.mantissaBits;
+  const exponentAndMantissaBits = bits & kNonSignBitsMask;
+  const exponentMask = (1 << fmt.exponentBits) - 1 << fmt.mantissaBits;
+  const infinityOrNaN = (bits & exponentMask) === exponentMask;
+  if (infinityOrNaN) {
+    const mantissaMask = (1 << fmt.mantissaBits) - 1;
+    const signBit = 2 ** kNonSignBits;
+    const isNegative = (bits & signBit) !== 0;
+    return bits & mantissaMask ?
+    Number.NaN :
+    isNegative ?
+    Number.NEGATIVE_INFINITY :
+    Number.POSITIVE_INFINITY;
+  }
+  let f32BitsWithWrongBias =
+  exponentAndMantissaBits << kFloat32Format.mantissaBits - fmt.mantissaBits;
   f32BitsWithWrongBias |= bits << 31 - kNonSignBits & 0x8000_0000;
   const numberWithWrongBias = float32BitsToNumber(f32BitsWithWrongBias);
   return numberWithWrongBias * 2 ** (kFloat32Format.bias - fmt.bias);
+}
+
+/**
+ * Convert ufloat9e5 bits from rgb9e5ufloat to a JS number
+ *
+ * The difference between `floatBitsToNumber` and `ufloatBitsToNumber`
+ * is that the latter doesn't use an implicit leading bit:
+ *
+ * floatBitsToNumber      = 2^(exponent - bias) * (1 + mantissa / 2 ^ numMantissaBits)
+ * ufloatM9E5BitsToNumber = 2^(exponent - bias) * (mantissa / 2 ^ numMantissaBits)
+ *                        = 2^(exponent - bias - numMantissaBits) * mantissa
+ */
+export function ufloatM9E5BitsToNumber(bits, fmt) {
+  const exponent = bits >> fmt.mantissaBits;
+  const mantissaMask = (1 << fmt.mantissaBits) - 1;
+  const mantissa = bits & mantissaMask;
+  return mantissa * 2 ** (exponent - fmt.bias - fmt.mantissaBits);
 }
 
 /**
@@ -232,15 +295,15 @@ export function packRGB9E5UFloat(r, g, b) {
   const N = 9; // number of mantissa bits
   const Emax = 31; // max exponent
   const B = 15; // exponent bias
-  const sharedexp_max = ((1 << N) - 1) / (1 << N) * Math.pow(2, Emax - B);
+  const sharedexp_max = ((1 << N) - 1) / (1 << N) * 2 ** (Emax - B);
   const red_c = clamp(r, { min: 0, max: sharedexp_max });
   const green_c = clamp(g, { min: 0, max: sharedexp_max });
   const blue_c = clamp(b, { min: 0, max: sharedexp_max });
   const max_c = Math.max(red_c, green_c, blue_c);
   const exp_shared_p = Math.max(-B - 1, Math.floor(Math.log2(max_c))) + 1 + B;
-  const max_s = Math.floor(max_c / Math.pow(2, exp_shared_p - B - N) + 0.5);
+  const max_s = Math.floor(max_c / 2 ** (exp_shared_p - B - N) + 0.5);
   const exp_shared = max_s === 1 << N ? exp_shared_p + 1 : exp_shared_p;
-  const scalar = 1 / Math.pow(2, exp_shared - B - N);
+  const scalar = 1 / 2 ** (exp_shared - B - N);
   const red_s = Math.floor(red_c * scalar + 0.5);
   const green_s = Math.floor(green_c * scalar + 0.5);
   const blue_s = Math.floor(blue_c * scalar + 0.5);
@@ -826,6 +889,7 @@ export class Scalar {
    * @param offset the byte offset within buffer
    */
   copyTo(buffer, offset) {
+    assert(this.type.kind !== 'f64', `Copying f64 values to/from buffers is not defined`);
     for (let i = 0; i < this.bits.length; i++) {
       buffer[offset + i] = this.bits[i];
     }
@@ -880,9 +944,28 @@ export class Scalar {
           if (n !== null && isFloatValue(this)) {
             let str = this.value.toString();
             str = str.indexOf('.') > 0 || str.indexOf('e') > 0 ? str : `${str}.0`;
-            return isSubnormalNumberF32(n.valueOf()) ?
-            `${Colors.bold(str)} (0x${hex} subnormal)` :
-            `${Colors.bold(str)} (0x${hex})`;
+            switch (this.type.kind) {
+              case 'abstract-float':
+                return isSubnormalNumberF64(n.valueOf()) ?
+                `${Colors.bold(str)} (0x${hex} subnormal)` :
+                `${Colors.bold(str)} (0x${hex})`;
+              case 'f64':
+                return isSubnormalNumberF64(n.valueOf()) ?
+                `${Colors.bold(str)} (0x${hex} subnormal)` :
+                `${Colors.bold(str)} (0x${hex})`;
+              case 'f32':
+                return isSubnormalNumberF32(n.valueOf()) ?
+                `${Colors.bold(str)} (0x${hex} subnormal)` :
+                `${Colors.bold(str)} (0x${hex})`;
+              case 'f16':
+                return isSubnormalNumberF16(n.valueOf()) ?
+                `${Colors.bold(str)} (0x${hex} subnormal)` :
+                `${Colors.bold(str)} (0x${hex})`;
+              default:
+                unreachable(
+                `Printing of floating point kind ${this.type.kind} is not implemented...`);}
+
+
           }
           return `${Colors.bold(this.value.toString())} (0x${hex})`;
         }}

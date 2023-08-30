@@ -321,6 +321,9 @@ function makeSubtreeHTML(n, parentLevel) {
       if (subtreeResult.fail > 0) {
         status += 'fail';
       }
+      if (subtreeResult.skip === subtreeResult.total && subtreeResult.total > 0) {
+        status += 'skip';
+      }
       div.setAttribute('data-status', status);
       if (autoCloseOnPass.checked && status === 'pass') {
         div.firstElementChild.removeAttribute('open');
@@ -387,6 +390,19 @@ onChange)
   const div = $('<details>').addClass('nodeheader');
   const header = $('<summary>').appendTo(div);
 
+  // prevent toggling if user is selecting text from an input element
+  {
+    let lastNodeName = '';
+    div.on('pointerdown', (event) => {
+      lastNodeName = event.target.nodeName;
+    });
+    div.on('click', (event) => {
+      if (lastNodeName === 'INPUT') {
+        event.preventDefault();
+      }
+    });
+  }
+
   const setChecked = () => {
     div.prop('open', true); // (does not fire onChange)
     onChange(true);
@@ -410,7 +426,14 @@ onChange)
   addClass(isLeaf ? 'leafrun' : 'subtreerun').
   attr('alt', runtext).
   attr('title', runtext).
-  on('click', () => void runSubtree()).
+  on('click', async () => {
+    console.log(`Starting run for ${n.query}`);
+    const startTime = performance.now();
+    await runSubtree();
+    const dt = performance.now() - startTime;
+    const dtMinutes = dt / 1000 / 60;
+    console.log(`Finished run: ${dt.toFixed(1)} ms = ${dtMinutes.toFixed(1)} min`);
+  }).
   appendTo(header);
   $('<a>').
   addClass('nodelink').
@@ -435,6 +458,9 @@ onChange)
     attr('type', 'text').
     prop('readonly', true).
     addClass('nodequery').
+    on('click', (event) => {
+      event.target.select();
+    }).
     val(n.query.toString()).
     appendTo(nodecolumns);
     if (n.subtreeCounts) {
@@ -589,7 +615,14 @@ void (async () => {
   loader.addEventListener('finish', () => {
     $('#info')[0].textContent = '';
   });
-  const tree = await loader.loadTree(rootQuery);
+
+  let tree;
+  try {
+    tree = await loader.loadTree(rootQuery);
+  } catch (err) {
+    $('#info')[0].textContent = err.toString();
+    return;
+  }
 
   tree.dissolveSingleChildTrees();
 
