@@ -14,22 +14,34 @@ DataCache will load this instead of building the expensive data at CTS runtime.
 Options:
   --help          Print this message and exit.
   --list          Print the list of output files without writing them.
+  --validate      Check that cache should build (Tests for collisions).
+  --verbose       Print each action taken.
 `);
   process.exit(rc);
 }
 
-let mode: 'emit' | 'list' = 'emit';
+let mode: 'emit' | 'list' | 'validate' = 'emit';
+let verbose = false;
 
 const nonFlagsArgs: string[] = [];
 for (const a of process.argv) {
   if (a.startsWith('-')) {
-    if (a === '--list') {
-      mode = 'list';
-    } else if (a === '--help') {
-      usage(0);
-    } else {
-      console.log('unrecognized flag: ', a);
-      usage(1);
+    switch (a) {
+      case '--list':
+        mode = 'list';
+        break;
+      case '--help':
+        usage(0);
+        break;
+      case '--verbose':
+        verbose = true;
+        break;
+      case '--validate':
+        mode = 'validate';
+        break;
+      default:
+        console.log('unrecognized flag: ', a);
+        usage(1);
     }
   } else {
     nonFlagsArgs.push(a);
@@ -127,6 +139,9 @@ and
 
         switch (mode) {
           case 'emit': {
+            if (verbose) {
+              console.log(`building '${outPath}'`);
+            }
             const data = await cacheable.build();
             const serialized = cacheable.serialize(data);
             fs.mkdirSync(path.dirname(outPath), { recursive: true });
@@ -135,6 +150,10 @@ and
           }
           case 'list': {
             console.log(outPath);
+            break;
+          }
+          case 'validate': {
+            // Only check currently performed is the collision detection above
             break;
           }
         }

@@ -28,6 +28,9 @@ stringifyPublicParamsUniquely } from
 import { validQueryPart } from '../internal/query/validQueryPart.js';
 import { assert, unreachable } from '../util/util.js';
 
+import { logToWebsocket } from './websocket_logger.js';
+
+
 
 
 
@@ -57,6 +60,8 @@ export function makeTestGroup(fixture) {
 }
 
 // Interfaces for running tests
+
+
 
 
 
@@ -126,6 +131,16 @@ export class TestGroup {
     for (const test of this.tests) {
       test.validate();
     }
+  }
+
+  collectNonEmptyTests() {
+    const testPaths = [];
+    for (const test of this.tests) {
+      if (test.computeCaseCount() > 0) {
+        testPaths.push({ testPath: test.testPath });
+      }
+    }
+    return testPaths;
   }
 }
 
@@ -268,6 +283,7 @@ class TestBuilder {
     };
   }
 
+  /** Perform various validation/"lint" chenks. */
   validate() {
     const testPathString = this.testPath.join(kPathSeparator);
     assert(this.testFn !== undefined, () => {
@@ -305,6 +321,18 @@ class TestBuilder {
         seen.add(testcaseStringUnique);
       }
     }
+  }
+
+  computeCaseCount() {
+    if (this.testCases === undefined) {
+      return 1;
+    }
+
+    let caseCount = 0;
+    for (const [_caseParams, _subcases] of builderIterateCasesWithSubcases(this.testCases, null)) {
+      caseCount++;
+    }
+    return caseCount;
   }
 
   params(
@@ -434,6 +462,18 @@ class RunCaseSpecific {
     this.testCreationStack = testCreationStack;
   }
 
+  computeSubcaseCount() {
+    if (this.subcases) {
+      let count = 0;
+      for (const _subcase of this.subcases) {
+        count++;
+      }
+      return count;
+    } else {
+      return 1;
+    }
+  }
+
   async runTest(
   rec,
   sharedState,
@@ -462,8 +502,9 @@ class RunCaseSpecific {
       // or unexpected validation/OOM error from the GPUDevice.
       if (throwSkip && ex instanceof SkipTestCase) {
         throw ex;
+      } else {
+        rec.threw(ex);
       }
-      rec.threw(ex);
     } finally {
       try {
         rec.endSubCase(expectedStatus);
@@ -656,6 +697,13 @@ class RunCaseSpecific {
       rec.threw(ex);
     } finally {
       rec.finish();
+
+      const msg = {
+        q: selfQuery.toString(),
+        timems: rec.result.timems,
+        nonskippedSubcaseCount: rec.nonskippedSubcaseCount
+      };
+      logToWebsocket(JSON.stringify(msg));
     }
   }
 }
