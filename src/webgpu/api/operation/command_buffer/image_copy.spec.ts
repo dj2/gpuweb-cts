@@ -1088,16 +1088,19 @@ class ImageCopyTest extends TextureTestMixin(GPUTest) {
 
       // Check the valid data in outputStagingBuffer once per row.
       for (let y = 0; y < copyFromOutputTextureLayout.mipSize[1]; ++y) {
+        const dataStart =
+          expectedStencilTextureDataOffset +
+          expectedStencilTextureDataBytesPerRow *
+            expectedStencilTextureDataRowsPerImage *
+            stencilTextureLayer +
+          expectedStencilTextureDataBytesPerRow * y;
         this.expectGPUBufferValuesEqual(
           outputStagingBuffer,
           expectedStencilTextureData.slice(
-            expectedStencilTextureDataOffset +
-              expectedStencilTextureDataBytesPerRow *
-                expectedStencilTextureDataRowsPerImage *
-                stencilTextureLayer +
-              expectedStencilTextureDataBytesPerRow * y,
-            copyFromOutputTextureLayout.mipSize[0]
-          )
+            dataStart,
+            dataStart + copyFromOutputTextureLayout.mipSize[0]
+          ),
+          copyFromOutputTextureLayout.bytesPerRow * y
         );
       }
     }
@@ -1129,6 +1132,10 @@ class ImageCopyTest extends TextureTestMixin(GPUTest) {
       copySize
     );
 
+    const use2DArray = this.isCompatibility && inputTexture.depthOrArrayLayers > 1;
+    const [textureType, layerCode] = use2DArray
+      ? ['texture_2d_array', ', baseArrayLayer']
+      : ['texture_2d', ''];
     const renderPipeline = this.device.createRenderPipeline({
       layout: 'auto',
       vertex: {
@@ -1151,10 +1158,11 @@ class ImageCopyTest extends TextureTestMixin(GPUTest) {
       fragment: {
         module: this.device.createShaderModule({
           code: `
-            @group(0) @binding(0) var inputTexture: texture_2d<f32>;
+            @group(0) @binding(0) var inputTexture: ${textureType}<f32>;
+            @group(0) @binding(1) var<uniform> baseArrayLayer: u32;
             @fragment fn main(@builtin(position) fragcoord : vec4<f32>) ->
               @builtin(frag_depth) f32 {
-              var depthValue : vec4<f32> = textureLoad(inputTexture, vec2<i32>(fragcoord.xy), 0);
+              var depthValue : vec4<f32> = textureLoad(inputTexture, vec2<i32>(fragcoord.xy)${layerCode}, 0);
               return depthValue.x;
             }`,
         }),
@@ -1197,19 +1205,26 @@ class ImageCopyTest extends TextureTestMixin(GPUTest) {
       });
       renderPass.setPipeline(renderPipeline);
 
+      const uniformBufferEntry = use2DArray
+        ? [this.createUniformBufferAndBindGroupEntryForBaseArrayLayer(z)]
+        : [];
+
       const bindGroup = this.device.createBindGroup({
         layout: renderPipeline.getBindGroupLayout(0),
         entries: [
           {
             binding: 0,
             resource: inputTexture.createView({
-              dimension: '2d',
-              baseArrayLayer: z,
-              arrayLayerCount: 1,
+              dimension: use2DArray ? '2d-array' : '2d',
+              ...(!use2DArray && {
+                baseArrayLayer: z,
+                arrayLayerCount: 1,
+              }),
               baseMipLevel: 0,
               mipLevelCount: 1,
             }),
           },
+          ...uniformBufferEntry,
         ],
       });
       renderPass.setBindGroup(0, bindGroup);
@@ -1218,6 +1233,23 @@ class ImageCopyTest extends TextureTestMixin(GPUTest) {
     }
 
     this.queue.submit([encoder.finish()]);
+  }
+
+  createUniformBufferAndBindGroupEntryForBaseArrayLayer(z: number) {
+    const buffer = this.device.createBuffer({
+      usage: GPUBufferUsage.UNIFORM,
+      size: 4,
+      mappedAtCreation: true,
+    });
+    this.trackForCleanup(buffer);
+    new Uint32Array(buffer.getMappedRange()).set([z]);
+    buffer.unmap();
+    return {
+      binding: 1,
+      resource: {
+        buffer,
+      },
+    };
   }
 
   DoCopyTextureToBufferWithDepthAspectTest(
@@ -2048,15 +2080,8 @@ copyTextureToBuffer() with depth aspect.
     t.selectDeviceOrSkipTestCase(info.feature);
   })
   .fn(t => {
-    const {
-      format,
-      copyMethod,
-      aspect,
-      offsetInBlocks,
-      dataPaddingInBytes,
-      copyDepth,
-      mipLevel,
-    } = t.params;
+    const { format, copyMethod, aspect, offsetInBlocks, dataPaddingInBytes, copyDepth, mipLevel } =
+      t.params;
     const bytesPerBlock = depthStencilFormatAspectSize(format, aspect);
     const initialDataOffset = offsetInBlocks * bytesPerBlock;
     const copySize = [3, 3, copyDepth] as const;

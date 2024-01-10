@@ -206,6 +206,17 @@ g.test('render_pass_and_bundle,color_count')
   )
   .fn(t => {
     const { passCount, bundleCount } = t.params;
+
+    const { maxColorAttachments } = t.device.limits;
+    t.skipIf(
+      passCount > maxColorAttachments,
+      `passCount: ${passCount} > maxColorAttachments for device: ${maxColorAttachments}`
+    );
+    t.skipIf(
+      bundleCount > maxColorAttachments,
+      `bundleCount: ${bundleCount} > maxColorAttachments for device: ${maxColorAttachments}`
+    );
+
     const bundleEncoder = t.device.createRenderBundleEncoder({
       colorFormats: range(bundleCount, () => 'rgba8uint'),
     });
@@ -242,7 +253,7 @@ g.test('render_pass_and_bundle,color_sparse')
   .fn(t => {
     const { passAttachments, bundleAttachments } = t.params;
 
-    const maxColorAttachments = t.device.limits.maxColorAttachments;
+    const { maxColorAttachments } = t.device.limits;
     t.skipIf(
       passAttachments.length > maxColorAttachments,
       `num passAttachments: ${passAttachments.length} > maxColorAttachments for device: ${maxColorAttachments}`
@@ -402,6 +413,17 @@ count.
   )
   .fn(t => {
     const { encoderType, encoderCount, pipelineCount } = t.params;
+
+    const { maxColorAttachments } = t.device.limits;
+    t.skipIf(
+      pipelineCount > maxColorAttachments,
+      `pipelineCount: ${pipelineCount} > maxColorAttachments for device: ${maxColorAttachments}`
+    );
+    t.skipIf(
+      encoderCount > maxColorAttachments,
+      `encoderCount: ${encoderCount} > maxColorAttachments for device: ${maxColorAttachments}`
+    );
+
     const pipeline = t.createRenderPipeline(
       range(pipelineCount, () => ({ format: 'rgba8uint', writeMask: 0 }))
     );
@@ -435,7 +457,7 @@ Test that each of color attachments in render passes or bundles match that of th
   )
   .fn(t => {
     const { encoderType, encoderAttachments, pipelineAttachments } = t.params;
-    const maxColorAttachments = t.device.limits.maxColorAttachments;
+    const { maxColorAttachments } = t.device.limits;
     t.skipIf(
       encoderAttachments.length > maxColorAttachments,
       `num encoderAttachments: ${encoderAttachments.length} > maxColorAttachments for device: ${maxColorAttachments}`
@@ -529,13 +551,6 @@ Test that the depth stencil read only state in render passes or bundles is compa
       .filter(p => {
         if (p.format) {
           const depthStencilInfo = kTextureFormatInfo[p.format];
-          // For combined depth/stencil formats the depth and stencil read only state must match
-          // in order to create a valid render bundle or render pass.
-          if (depthStencilInfo.depth && depthStencilInfo.stencil) {
-            if (p.depthReadOnly !== p.stencilReadOnly) {
-              return false;
-            }
-          }
           // If the format has no depth aspect, the depthReadOnly, depthWriteEnabled of the pipeline must not be true
           // in order to create a valid render pipeline.
           if (!depthStencilInfo.depth && p.depthWriteEnabled) {

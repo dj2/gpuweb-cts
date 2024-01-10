@@ -14,26 +14,29 @@ Component-wise selection. Result component i is evaluated as select(f[i],t[i],co
 import { GPUTest } from '../../../../../gpu_test.js';
 import {
 
-TypeVec,
-TypeBool,
-TypeF32,
-TypeF16,
-TypeI32,
-TypeU32,
-f32,
-f16,
-i32,
-u32,
-False,
-True,
-bool,
-vec2,
-vec3,
-vec4 } from
+  TypeVec,
+  TypeBool,
+  TypeF32,
+  TypeF16,
+  TypeI32,
+  TypeU32,
+  f32,
+  f16,
+  i32,
+  u32,
+  False,
+  True,
+  bool,
+  vec2,
+  vec3,
+  vec4,
+  abstractFloat,
+  TypeAbstractFloat } from
 '../../../../../util/conversion.js';
+
 import { run, allInputSources } from '../../expression.js';
 
-import { builtin } from './builtin.js';
+import { abstractBuiltin, builtin } from './builtin.js';
 
 export const g = makeTestGroup(GPUTest);
 
@@ -47,6 +50,10 @@ const dataType = {
   b: {
     type: TypeBool,
     constructor: makeBool
+  },
+  af: {
+    type: TypeAbstractFloat,
+    constructor: abstractFloat
   },
   f: {
     type: TypeF32,
@@ -72,13 +79,14 @@ desc(`scalar tests`).
 params((u) =>
 u.
 combine('inputSource', allInputSources).
-combine('component', ['b', 'f', 'h', 'i', 'u']).
-combine('overload', ['scalar', 'vec2', 'vec3', 'vec4'])).
-
+combine('component', ['b', 'af', 'f', 'h', 'i', 'u']).
+combine('overload', ['scalar', 'vec2', 'vec3', 'vec4'])
+).
 beforeAllSubcases((t) => {
   if (t.params.component === 'h') {
     t.selectDeviceOrSkipTestCase({ requiredFeatures: ['shader-f16'] });
   }
+  t.skipIf(t.params.component === 'af' && t.params.inputSource !== 'const');
 }).
 fn(async (t) => {
   const componentType = dataType[t.params.component].type;
@@ -132,13 +140,13 @@ fn(async (t) => {
   const overload = overloads[t.params.overload];
 
   await run(
-  t,
-  builtin('select'),
-  [overload.type, overload.type, TypeBool],
-  overload.type,
-  t.params,
-  overload.cases);
-
+    t,
+    t.params.component === 'af' ? abstractBuiltin('select') : builtin('select'),
+    [overload.type, overload.type, TypeBool],
+    overload.type,
+    t.params,
+    overload.cases
+  );
 });
 
 g.test('vector').
@@ -147,13 +155,14 @@ desc(`vector tests`).
 params((u) =>
 u.
 combine('inputSource', allInputSources).
-combine('component', ['b', 'f', 'h', 'i', 'u']).
-combine('overload', ['vec2', 'vec3', 'vec4'])).
-
+combine('component', ['b', 'af', 'f', 'h', 'i', 'u']).
+combine('overload', ['vec2', 'vec3', 'vec4'])
+).
 beforeAllSubcases((t) => {
   if (t.params.component === 'h') {
     t.selectDeviceOrSkipTestCase({ requiredFeatures: ['shader-f16'] });
   }
+  t.skipIf(t.params.component === 'af' && t.params.inputSource !== 'const');
 }).
 fn(async (t) => {
   const componentType = dataType[t.params.component].type;
@@ -231,16 +240,16 @@ fn(async (t) => {
 
         };
         break;
-      }}
-
+      }
+  }
 
   await run(
-  t,
-  builtin('select'),
-  [tests.dataType, tests.dataType, tests.boolType],
-  tests.dataType,
-  t.params,
-  tests.cases);
-
+    t,
+    t.params.component === 'af' ? abstractBuiltin('select') : builtin('select'),
+    [tests.dataType, tests.dataType, tests.boolType],
+    tests.dataType,
+    t.params,
+    tests.cases
+  );
 });
 //# sourceMappingURL=select.spec.js.map

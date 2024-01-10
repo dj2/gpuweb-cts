@@ -2,8 +2,8 @@
 * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
 **/import {
 
-kAccessModeInfo,
-kAddressSpaceInfo } from
+  kAccessModeInfo,
+  kAddressSpaceInfo } from
 '../../types.js';
 
 /** An enumerator of shader stages */
@@ -14,7 +14,7 @@ export const kShaderStages = ['vertex', 'fragment', 'compute'];
 
 /**
  * declareEntrypoint emits the WGSL to declare an entry point with the name, stage and body.
- * The generated function will have an appropriate return type and return statement, so that @p body
+ * The generated function will have an appropriate return type and return statement, so that `body`
  * does not have to change between stage.
  * @param arg - arg specifies the
  * optional entry point function name, the shader stage, and the body of the
@@ -45,8 +45,8 @@ fn ${arg.name}() {
       return `@compute @workgroup_size(1)
 fn ${arg.name}() {
   ${arg.body}
-}`;}
-
+}`;
+  }
 }
 
 /**
@@ -104,9 +104,9 @@ additionalBody)
 {
   const info = kAddressSpaceInfo[p.addressSpace];
   const decl = declareVarX(
-  p.explicitSpace ? p.addressSpace : '',
-  p.explicitAccess ? p.accessMode : '');
-
+    p.explicitSpace ? p.addressSpace : '',
+    p.explicitAccess ? p.accessMode : ''
+  );
 
   additionalBody = additionalBody ?? '';
 
@@ -115,8 +115,8 @@ additionalBody)
       return decl + '\n' + declareEntryPoint({ stage: p.stage, body: additionalBody });
 
     case 'function':
-      return declareEntryPoint({ stage: p.stage, body: decl + '\n' + additionalBody });}
-
+      return declareEntryPoint({ stage: p.stage, body: decl + '\n' + additionalBody });
+  }
 }
 
 /**

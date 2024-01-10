@@ -50,7 +50,7 @@ How to generate TIMING_LOG_FILES files:
 }
 
 const kHeader = `{
-  "_comment": "SEMI AUTO-GENERATED: Please read tools/merge_listing_times.",
+  "_comment": "SEMI AUTO-GENERATED: Please read docs/adding_timing_metadata.md.",
 `;
 const kFooter = `\
   "_end": ""
@@ -140,8 +140,8 @@ void (async () => {
 
   for (const suite of suites) {
     const currentMetadata = JSON.parse(
-    fs.readFileSync(`./src/${suite}/listing_meta.json`, 'utf8'));
-
+      fs.readFileSync(`./src/${suite}/listing_meta.json`, 'utf8')
+    );
 
     const metadata = { ...currentMetadata };
     for (const [testQString, { totalTimeMS, subcaseCount }] of testTimes.get(suite)) {

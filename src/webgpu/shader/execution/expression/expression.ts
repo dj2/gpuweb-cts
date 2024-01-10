@@ -1,64 +1,23 @@
 import { globalTestConfig } from '../../../../common/framework/test_config.js';
 import { assert, objectEquals, unreachable } from '../../../../common/util/util.js';
 import { GPUTest } from '../../../gpu_test.js';
-import { compare, Comparator, ComparatorImpl } from '../../../util/compare.js';
+import { Comparator, ComparatorImpl } from '../../../util/compare.js';
 import { kValue } from '../../../util/constants.js';
 import {
-  ScalarType,
+  MatrixType,
   Scalar,
+  ScalarType,
   Type,
-  TypeVec,
   TypeU32,
+  TypeVec,
   Value,
   Vector,
   VectorType,
-  u32,
-  i32,
-  Matrix,
-  MatrixType,
-  ScalarBuilder,
   scalarTypeOf,
 } from '../../../util/conversion.js';
-import { FPInterval } from '../../../util/floating_point.js';
-import {
-  cartesianProduct,
-  QuantizeFunc,
-  quantizeToI32,
-  quantizeToU32,
-} from '../../../util/math.js';
 
-export type Expectation = Value | FPInterval | FPInterval[] | FPInterval[][] | Comparator;
-
-/** @returns if this Expectation actually a Comparator */
-export function isComparator(e: Expectation): e is Comparator {
-  return !(
-    e instanceof FPInterval ||
-    e instanceof Scalar ||
-    e instanceof Vector ||
-    e instanceof Matrix ||
-    e instanceof Array
-  );
-}
-
-/** @returns the input if it is already a Comparator, otherwise wraps it in a 'value' comparator */
-export function toComparator(input: Expectation): Comparator {
-  if (isComparator(input)) {
-    return input;
-  }
-
-  return { compare: got => compare(got, input as Value), kind: 'value' };
-}
-
-/** Case is a single expression test case. */
-export type Case = {
-  // The input value(s)
-  input: Value | Array<Value>;
-  // The expected result, or function to check the result
-  expected: Expectation;
-};
-
-/** CaseList is a list of Cases */
-export type CaseList = Array<Case>;
+import { Case, CaseList } from './case.js';
+import { toComparator } from './expectation.js';
 
 /** The input value source */
 export type InputSource =
@@ -255,7 +214,7 @@ type PipelineCache = Map<String, GPUComputePipeline>;
 
 /**
  * Searches for an entry with the given key, adding and returning the result of calling
- * @p create if the entry was not found.
+ * `create` if the entry was not found.
  * @param map the cache map
  * @param key the entry's key
  * @param create the function used to construct a value, if not found in the cache
@@ -347,6 +306,22 @@ export async function run(
     }
   };
 
+  const processBatch = async (batchCases: CaseList) => {
+    const checkBatch = await submitBatch(
+      t,
+      shaderBuilder,
+      parameterTypes,
+      resultType,
+      batchCases,
+      cfg.inputSource,
+      pipelineCache
+    );
+    checkBatch();
+    void t.queue.onSubmittedWorkDone().finally(batchFinishedCallback);
+  };
+
+  const pendingBatches = [];
+
   for (let i = 0; i < cases.length; i += casesPerBatch) {
     const batchCases = cases.slice(i, Math.min(i + casesPerBatch, cases.length));
 
@@ -359,18 +334,10 @@ export async function run(
     }
     batchesInFlight += 1;
 
-    const checkBatch = submitBatch(
-      t,
-      shaderBuilder,
-      parameterTypes,
-      resultType,
-      batchCases,
-      cfg.inputSource,
-      pipelineCache
-    );
-    checkBatch();
-    t.queue.onSubmittedWorkDone().finally(batchFinishedCallback);
+    pendingBatches.push(processBatch(batchCases));
   }
+
+  await Promise.all(pendingBatches);
 }
 
 /**
@@ -385,7 +352,7 @@ export async function run(
  * @param pipelineCache the cache of compute pipelines, shared between batches
  * @returns a function that checks the results are as expected
  */
-function submitBatch(
+async function submitBatch(
   t: GPUTest,
   shaderBuilder: ShaderBuilder,
   parameterTypes: Array<Type>,
@@ -393,7 +360,7 @@ function submitBatch(
   cases: CaseList,
   inputSource: InputSource,
   pipelineCache: PipelineCache
-): () => void {
+): Promise<() => void> {
   // Construct a buffer to hold the results of the expression tests
   const outputBufferSize = cases.length * valueStride(resultType);
   const outputBuffer = t.device.createBuffer({
@@ -401,7 +368,7 @@ function submitBatch(
     usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
   });
 
-  const [pipeline, group] = buildPipeline(
+  const [pipeline, group] = await buildPipeline(
     t,
     shaderBuilder,
     parameterTypes,
@@ -462,11 +429,11 @@ function submitBatch(
 }
 
 /**
- * map is a helper for returning a new array with each element of @p v
- * transformed with @p fn.
- * If @p v is not an array, then @p fn is called with (v, 0).
+ * map is a helper for returning a new array with each element of `v`
+ * transformed with `fn`.
+ * If `v` is not an array, then `fn` is called with (v, 0).
  */
-function map<T, U>(v: T | T[], fn: (value: T, index?: number) => U): U[] {
+function map<T, U>(v: T | readonly T[], fn: (value: T, index?: number) => U): U[] {
   if (v instanceof Array) {
     return v.map(fn);
   }
@@ -588,7 +555,7 @@ function wgslHeader(parameterTypes: Array<Type>, resultType: Type) {
  * ExpressionBuilder returns the WGSL used to evaluate an expression with the
  * given input values.
  */
-export type ExpressionBuilder = (values: Array<string>) => string;
+export type ExpressionBuilder = (values: ReadonlyArray<string>) => string;
 
 /**
  * Returns a ShaderBuilder that builds a basic expression test shader.
@@ -986,7 +953,7 @@ ${body}
 /**
  * Constructs and returns a GPUComputePipeline and GPUBindGroup for running a
  * batch of test cases. If a pre-created pipeline can be found in
- * @p pipelineCache, then this may be returned instead of creating a new
+ * `pipelineCache`, then this may be returned instead of creating a new
  * pipeline.
  * @param t the GPUTest
  * @param shaderBuilder the shader builder
@@ -997,7 +964,7 @@ ${body}
  * @param outputBuffer the buffer that will hold the output values of the tests
  * @param pipelineCache the cache of compute pipelines, shared between batches
  */
-function buildPipeline(
+async function buildPipeline(
   t: GPUTest,
   shaderBuilder: ShaderBuilder,
   parameterTypes: Array<Type>,
@@ -1006,7 +973,7 @@ function buildPipeline(
   inputSource: InputSource,
   outputBuffer: GPUBuffer,
   pipelineCache: PipelineCache
-): [GPUComputePipeline, GPUBindGroup] {
+): Promise<[GPUComputePipeline, GPUBindGroup]> {
   cases.forEach(c => {
     const inputTypes = c.input instanceof Array ? c.input.map(i => i.type) : [c.input.type];
     if (!objectEquals(inputTypes, parameterTypes)) {
@@ -1026,7 +993,7 @@ function buildPipeline(
       const module = t.device.createShaderModule({ code: source });
 
       // build the pipeline
-      const pipeline = t.device.createComputePipeline({
+      const pipeline = await t.device.createComputePipelineAsync({
         layout: 'auto',
         compute: { module, entryPoint: 'main' },
       });
@@ -1184,231 +1151,4 @@ function packScalarsToVector(
     parameterTypes: packedParameterTypes,
     resultType: packedResultType,
   };
-}
-
-/**
- * Indicates bounds that acceptance intervals need to be within to avoid inputs
- * being filtered out. This is used for const-eval tests, since going OOB will
- * cause a validation error not an execution error.
- */
-export type IntervalFilter =
-  | 'finite' // Expected to be finite in the interval numeric space
-  | 'unfiltered'; // No expectations
-
-/**
- * A function that performs a binary operation on x and y, and returns the expected
- * result.
- */
-export interface BinaryOp {
-  (x: number, y: number): number | undefined;
-}
-
-/**
- * @returns array of Case for the input params with op applied
- * @param param0s array of inputs to try for the first param
- * @param param1s array of inputs to try for the second param
- * @param op callback called on each pair of inputs to produce each case
- * @param quantize function to quantize all values
- * @param scalarize function to convert numbers to Scalars
- */
-function generateScalarBinaryToScalarCases(
-  param0s: number[],
-  param1s: number[],
-  op: BinaryOp,
-  quantize: QuantizeFunc,
-  scalarize: ScalarBuilder
-): Case[] {
-  param0s = param0s.map(quantize);
-  param1s = param1s.map(quantize);
-  return cartesianProduct(param0s, param1s).reduce((cases, e) => {
-    const expected = op(e[0], e[1]);
-    if (expected !== undefined) {
-      cases.push({ input: [scalarize(e[0]), scalarize(e[1])], expected: scalarize(expected) });
-    }
-    return cases;
-  }, new Array<Case>());
-}
-
-/**
- * @returns an array of Cases for operations over a range of inputs
- * @param param0s array of inputs to try for the first param
- * @param param1s array of inputs to try for the second param
- * @param op callback called on each pair of inputs to produce each case
- */
-export function generateBinaryToI32Cases(param0s: number[], param1s: number[], op: BinaryOp) {
-  return generateScalarBinaryToScalarCases(param0s, param1s, op, quantizeToI32, i32);
-}
-
-/**
- * @returns an array of Cases for operations over a range of inputs
- * @param param0s array of inputs to try for the first param
- * @param param1s array of inputs to try for the second param
- * @param op callback called on each pair of inputs to produce each case
- */
-export function generateBinaryToU32Cases(param0s: number[], param1s: number[], op: BinaryOp) {
-  return generateScalarBinaryToScalarCases(param0s, param1s, op, quantizeToU32, u32);
-}
-
-/**
- * @returns a Case for the input params with op applied
- * @param scalar scalar param
- * @param vector vector param (2, 3, or 4 elements)
- * @param op the op to apply to scalar and vector
- * @param quantize function to quantize all values in vectors and scalars
- * @param scalarize function to convert numbers to Scalars
- */
-function makeScalarVectorBinaryToVectorCase(
-  scalar: number,
-  vector: number[],
-  op: BinaryOp,
-  quantize: QuantizeFunc,
-  scalarize: ScalarBuilder
-): Case | undefined {
-  scalar = quantize(scalar);
-  vector = vector.map(quantize);
-  const result = vector.map(v => op(scalar, v));
-  if (result.includes(undefined)) {
-    return undefined;
-  }
-  return {
-    input: [scalarize(scalar), new Vector(vector.map(scalarize))],
-    expected: new Vector((result as number[]).map(scalarize)),
-  };
-}
-
-/**
- * @returns array of Case for the input params with op applied
- * @param scalars array of scalar params
- * @param vectors array of vector params (2, 3, or 4 elements)
- * @param op the op to apply to each pair of scalar and vector
- * @param quantize function to quantize all values in vectors and scalars
- * @param scalarize function to convert numbers to Scalars
- */
-function generateScalarVectorBinaryToVectorCases(
-  scalars: number[],
-  vectors: number[][],
-  op: BinaryOp,
-  quantize: QuantizeFunc,
-  scalarize: ScalarBuilder
-): Case[] {
-  const cases = new Array<Case>();
-  scalars.forEach(s => {
-    vectors.forEach(v => {
-      const c = makeScalarVectorBinaryToVectorCase(s, v, op, quantize, scalarize);
-      if (c !== undefined) {
-        cases.push(c);
-      }
-    });
-  });
-  return cases;
-}
-
-/**
- * @returns a Case for the input params with op applied
- * @param vector vector param (2, 3, or 4 elements)
- * @param scalar scalar param
- * @param op the op to apply to vector and scalar
- * @param quantize function to quantize all values in vectors and scalars
- * @param scalarize function to convert numbers to Scalars
- */
-function makeVectorScalarBinaryToVectorCase(
-  vector: number[],
-  scalar: number,
-  op: BinaryOp,
-  quantize: QuantizeFunc,
-  scalarize: ScalarBuilder
-): Case | undefined {
-  vector = vector.map(quantize);
-  scalar = quantize(scalar);
-  const result = vector.map(v => op(v, scalar));
-  if (result.includes(undefined)) {
-    return undefined;
-  }
-  return {
-    input: [new Vector(vector.map(scalarize)), scalarize(scalar)],
-    expected: new Vector((result as number[]).map(scalarize)),
-  };
-}
-
-/**
- * @returns array of Case for the input params with op applied
- * @param vectors array of vector params (2, 3, or 4 elements)
- * @param scalars array of scalar params
- * @param op the op to apply to each pair of vector and scalar
- * @param quantize function to quantize all values in vectors and scalars
- * @param scalarize function to convert numbers to Scalars
- */
-function generateVectorScalarBinaryToVectorCases(
-  vectors: number[][],
-  scalars: number[],
-  op: BinaryOp,
-  quantize: QuantizeFunc,
-  scalarize: ScalarBuilder
-): Case[] {
-  const cases = new Array<Case>();
-  scalars.forEach(s => {
-    vectors.forEach(v => {
-      const c = makeVectorScalarBinaryToVectorCase(v, s, op, quantize, scalarize);
-      if (c !== undefined) {
-        cases.push(c);
-      }
-    });
-  });
-  return cases;
-}
-
-/**
- * @returns array of Case for the input params with op applied
- * @param scalars array of scalar params
- * @param vectors array of vector params (2, 3, or 4 elements)
- * @param op he op to apply to each pair of scalar and vector
- */
-export function generateU32VectorBinaryToVectorCases(
-  scalars: number[],
-  vectors: number[][],
-  op: BinaryOp
-): Case[] {
-  return generateScalarVectorBinaryToVectorCases(scalars, vectors, op, quantizeToU32, u32);
-}
-
-/**
- * @returns array of Case for the input params with op applied
- * @param vectors array of vector params (2, 3, or 4 elements)
- * @param scalars array of scalar params
- * @param op he op to apply to each pair of vector and scalar
- */
-export function generateVectorU32BinaryToVectorCases(
-  vectors: number[][],
-  scalars: number[],
-  op: BinaryOp
-): Case[] {
-  return generateVectorScalarBinaryToVectorCases(vectors, scalars, op, quantizeToU32, u32);
-}
-
-/**
- * @returns array of Case for the input params with op applied
- * @param scalars array of scalar params
- * @param vectors array of vector params (2, 3, or 4 elements)
- * @param op he op to apply to each pair of scalar and vector
- */
-export function generateI32VectorBinaryToVectorCases(
-  scalars: number[],
-  vectors: number[][],
-  op: BinaryOp
-): Case[] {
-  return generateScalarVectorBinaryToVectorCases(scalars, vectors, op, quantizeToI32, i32);
-}
-
-/**
- * @returns array of Case for the input params with op applied
- * @param vectors array of vector params (2, 3, or 4 elements)
- * @param scalars array of scalar params
- * @param op he op to apply to each pair of vector and scalar
- */
-export function generateVectorI32BinaryToVectorCases(
-  vectors: number[][],
-  scalars: number[],
-  op: BinaryOp
-): Case[] {
-  return generateVectorScalarBinaryToVectorCases(vectors, scalars, op, quantizeToI32, i32);
 }

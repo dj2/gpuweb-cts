@@ -127,9 +127,9 @@ export const kResourceEmitters = new Map([
 [
 'storage',
 (name, group, binding) =>
-`${groupAndBinding(group, binding)} var<storage> ${name} : array<vec4<f32>, 16>;\n`]]);
+`${groupAndBinding(group, binding)} var<storage> ${name} : array<vec4<f32>, 16>;\n`]]
 
-
+);
 
 /** All possible resource types for use as test permutations. */
 export const kResourceKindsAll = [
@@ -167,7 +167,7 @@ export const kResourceKindsB = ['texture_3d', 'texture_storage_1d', 'uniform'];
 
 /**
  * declareEntrypoint emits the WGSL to declare an entry point with the given name, stage and body.
- * The generated function will have an appropriate return type and return statement, so that @p body
+ * The generated function will have an appropriate return type and return statement, so that `body`
  * does not have to change between stage.
  * @param name the entry point function name
  * @param stage the entry point stage
@@ -191,7 +191,7 @@ fn ${name}() {
       return `@compute @workgroup_size(1)
 fn ${name}() {
   ${body}
-}`;}
-
+}`;
+  }
 }
 //# sourceMappingURL=util.js.map

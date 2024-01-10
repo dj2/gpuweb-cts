@@ -1,6 +1,11 @@
 /**
 * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
-**/import { Float16Array } from '../../external/petamoriken/float16/float16.js';export const kBit = {
+**/import { reinterpretU64AsF64, reinterpretF64AsU64,
+  reinterpretU32AsF32,
+  reinterpretU16AsF16 } from
+'./reinterpret.js';
+
+export const kBit = {
   // Limits of int32
   i32: {
     positive: {
@@ -236,49 +241,6 @@
   }
 };
 
-/**
- * @returns a 64-bit float value via interpreting the input as the bit
- * representation as a 64-bit integer
- *
- * Using a locally defined function here to avoid compile time dependency
- * issues.
- */
-function reinterpretU64AsF64(input) {
-  return new Float64Array(new BigUint64Array([input]).buffer)[0];
-}
-
-/**
- * @returns the 64-bit integer bit representation of 64-bit float value
- *
- * Using a locally defined function here to avoid compile time dependency
- * issues.
- */
-function reinterpretF64AsU64(input) {
-  return new BigUint64Array(new Float64Array([input]).buffer)[0];
-}
-
-/**
- * @returns a 32-bit float value via interpreting the input as the bit
- * representation as a 32-bit integer
- *
- * Using a locally defined function here to avoid compile time dependency
- * issues.
- */
-function reinterpretU32AsF32(input) {
-  return new Float32Array(new Uint32Array([input]).buffer)[0];
-}
-
-/**
- * @returns a 16-bit float value via interpreting the input as the bit
- * representation as a 64-bit integer
- *
- * Using a locally defined function here to avoid compile time dependency
- * issues.
- */
-function reinterpretU16AsF16(input) {
-  return new Float16Array(new Uint16Array([input]).buffer)[0];
-}
-
 export const kValue = {
   // Limits of i32
   i32: {
@@ -376,8 +338,8 @@ export const kValue = {
       // which when cast to f32 will not produce infinity. This comes from WGSL
       // conversion rules and the rounding rules of WebIDL
       last_castable_pipeline_override: reinterpretU64AsF64(
-      reinterpretF64AsU64(reinterpretU32AsF32(kBit.f32.positive.max) / 2 + 2 ** 127) - BigInt(1))
-
+        reinterpretF64AsU64(reinterpretU32AsF32(kBit.f32.positive.max) / 2 + 2 ** 127) - BigInt(1)
+      )
     },
     negative: {
       max: reinterpretU32AsF32(kBit.f32.negative.max),
@@ -409,8 +371,8 @@ export const kValue = {
       // which when cast to f32 will not produce infinity. This comes from WGSL
       // conversion rules and the rounding rules of WebIDL.
       last_castable_pipeline_override: -reinterpretU64AsF64(
-      reinterpretF64AsU64(reinterpretU32AsF32(kBit.f32.positive.max) / 2 + 2 ** 127) - BigInt(1))
-
+        reinterpretF64AsU64(reinterpretU32AsF32(kBit.f32.positive.max) / 2 + 2 ** 127) - BigInt(1)
+      )
     },
     max_ulp: reinterpretU32AsF32(kBit.f32.max_ulp),
     emax: 127
@@ -465,8 +427,8 @@ export const kValue = {
       // which when cast to f16 will not produce infinity. This comes from WGSL
       // conversion rules and the rounding rules of WebIDL
       last_castable_pipeline_override: reinterpretU64AsF64(
-      reinterpretF64AsU64(reinterpretU16AsF16(kBit.f16.positive.max) / 2 + 2 ** 15) - BigInt(1))
-
+        reinterpretF64AsU64(reinterpretU16AsF16(kBit.f16.positive.max) / 2 + 2 ** 15) - BigInt(1)
+      )
     },
     negative: {
       max: reinterpretU16AsF16(kBit.f16.negative.max),
@@ -498,8 +460,8 @@ export const kValue = {
       // which when cast to f16 will not produce infinity. This comes from WGSL
       // conversion rules and the rounding rules of WebIDL.
       last_castable_pipeline_override: -reinterpretU64AsF64(
-      reinterpretF64AsU64(reinterpretU16AsF16(kBit.f16.positive.max) / 2 + 2 ** 15) - BigInt(1))
-
+        reinterpretF64AsU64(reinterpretU16AsF16(kBit.f16.positive.max) / 2 + 2 ** 15) - BigInt(1)
+      )
     },
     max_ulp: reinterpretU16AsF16(kBit.f16.max_ulp),
     emax: 15

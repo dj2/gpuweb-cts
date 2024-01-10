@@ -22,12 +22,9 @@ import {
   correctlyRoundedF32,
   FlushMode,
   frexp,
-  fullF16Range,
-  fullF32Range,
+  scalarF16Range,
+  scalarF32Range,
   fullI32Range,
-  reinterpretU16AsF16,
-  reinterpretU32AsF32,
-  reinterpretU64AsF64,
   lerp,
   linearRange,
   nextAfterF16,
@@ -40,6 +37,11 @@ import {
   lerpBigInt,
   linearRangeBigInt,
 } from '../webgpu/util/math.js';
+import {
+  reinterpretU16AsF16,
+  reinterpretU32AsF32,
+  reinterpretU64AsF64,
+} from '../webgpu/util/reinterpret.js';
 
 import { UnitTest } from './unit_test.js';
 
@@ -70,8 +72,8 @@ function withinOneULPF32(got: number, expected: number, mode: FlushMode): boolea
  *              FTZ occur during comparison
  **/
 function compareArrayOfNumbersF32(
-  got: Array<number>,
-  expect: Array<number>,
+  got: readonly number[],
+  expect: readonly number[],
   mode: FlushMode = 'flush'
 ): boolean {
   return (
@@ -1535,19 +1537,19 @@ g.test('fullF32Range')
   .paramsSimple<fullF32RangeCase>(
     // prettier-ignore
     [
-      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ 0.0 ] },
-      { neg_norm: 1, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f32.negative.min, 0.0] },
-      { neg_norm: 2, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f32.negative.min, kValue.f32.negative.max, 0.0 ] },
-      { neg_norm: 3, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f32.negative.min, -1.9999998807907104, kValue.f32.negative.max, 0.0 ] },
-      { neg_norm: 0, neg_sub: 1, pos_sub: 0, pos_norm: 0, expect: [ kValue.f32.negative.subnormal.min, 0.0 ] },
-      { neg_norm: 0, neg_sub: 2, pos_sub: 0, pos_norm: 0, expect: [ kValue.f32.negative.subnormal.min, kValue.f32.negative.subnormal.max, 0.0 ] },
-      { neg_norm: 0, neg_sub: 0, pos_sub: 1, pos_norm: 0, expect: [ 0.0, kValue.f32.positive.subnormal.min ] },
-      { neg_norm: 0, neg_sub: 0, pos_sub: 2, pos_norm: 0, expect: [ 0.0, kValue.f32.positive.subnormal.min, kValue.f32.positive.subnormal.max ] },
-      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 1, expect: [ 0.0, kValue.f32.positive.min ] },
-      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 2, expect: [ 0.0, kValue.f32.positive.min, kValue.f32.positive.max ] },
-      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 3, expect: [ 0.0, kValue.f32.positive.min, 1.9999998807907104, kValue.f32.positive.max ] },
-      { neg_norm: 1, neg_sub: 1, pos_sub: 1, pos_norm: 1, expect: [ kValue.f32.negative.min, kValue.f32.negative.subnormal.min, 0.0, kValue.f32.positive.subnormal.min, kValue.f32.positive.min ] },
-      { neg_norm: 2, neg_sub: 2, pos_sub: 2, pos_norm: 2, expect: [ kValue.f32.negative.min, kValue.f32.negative.max, kValue.f32.negative.subnormal.min, kValue.f32.negative.subnormal.max, 0.0, kValue.f32.positive.subnormal.min, kValue.f32.positive.subnormal.max, kValue.f32.positive.min, kValue.f32.positive.max ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ -0.0, 0.0 ] },
+      { neg_norm: 1, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f32.negative.min, -0.0, 0.0] },
+      { neg_norm: 2, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f32.negative.min, kValue.f32.negative.max, -0.0, 0.0 ] },
+      { neg_norm: 3, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f32.negative.min, -1.9999998807907104, kValue.f32.negative.max, -0.0, 0.0 ] },
+      { neg_norm: 0, neg_sub: 1, pos_sub: 0, pos_norm: 0, expect: [ kValue.f32.negative.subnormal.min, -0.0, 0.0 ] },
+      { neg_norm: 0, neg_sub: 2, pos_sub: 0, pos_norm: 0, expect: [ kValue.f32.negative.subnormal.min, kValue.f32.negative.subnormal.max, -0.0, 0.0 ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 1, pos_norm: 0, expect: [ -0.0, 0.0, kValue.f32.positive.subnormal.min ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 2, pos_norm: 0, expect: [ -0.0, 0.0, kValue.f32.positive.subnormal.min, kValue.f32.positive.subnormal.max ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 1, expect: [ -0.0, 0.0, kValue.f32.positive.min ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 2, expect: [ -0.0, 0.0, kValue.f32.positive.min, kValue.f32.positive.max ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 3, expect: [ -0.0, 0.0, kValue.f32.positive.min, 1.9999998807907104, kValue.f32.positive.max ] },
+      { neg_norm: 1, neg_sub: 1, pos_sub: 1, pos_norm: 1, expect: [ kValue.f32.negative.min, kValue.f32.negative.subnormal.min, -0.0, 0.0, kValue.f32.positive.subnormal.min, kValue.f32.positive.min ] },
+      { neg_norm: 2, neg_sub: 2, pos_sub: 2, pos_norm: 2, expect: [ kValue.f32.negative.min, kValue.f32.negative.max, kValue.f32.negative.subnormal.min, kValue.f32.negative.subnormal.max, -0.0, 0.0, kValue.f32.positive.subnormal.min, kValue.f32.positive.subnormal.max, kValue.f32.positive.min, kValue.f32.positive.max ] },
     ]
   )
   .fn(test => {
@@ -1555,7 +1557,7 @@ g.test('fullF32Range')
     const neg_sub = test.params.neg_sub;
     const pos_sub = test.params.pos_sub;
     const pos_norm = test.params.pos_norm;
-    const got = fullF32Range({ neg_norm, neg_sub, pos_sub, pos_norm });
+    const got = scalarF32Range({ neg_norm, neg_sub, pos_sub, pos_norm });
     const expect = test.params.expect;
 
     test.expect(
@@ -1576,19 +1578,19 @@ g.test('fullF16Range')
   .paramsSimple<fullF16RangeCase>(
     // prettier-ignore
     [
-      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ 0.0 ] },
-      { neg_norm: 1, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f16.negative.min, 0.0] },
-      { neg_norm: 2, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f16.negative.min, kValue.f16.negative.max, 0.0 ] },
-      { neg_norm: 3, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f16.negative.min, -1.9990234375, kValue.f16.negative.max, 0.0 ] },
-      { neg_norm: 0, neg_sub: 1, pos_sub: 0, pos_norm: 0, expect: [ kValue.f16.negative.subnormal.min, 0.0 ] },
-      { neg_norm: 0, neg_sub: 2, pos_sub: 0, pos_norm: 0, expect: [ kValue.f16.negative.subnormal.min, kValue.f16.negative.subnormal.max, 0.0 ] },
-      { neg_norm: 0, neg_sub: 0, pos_sub: 1, pos_norm: 0, expect: [ 0.0, kValue.f16.positive.subnormal.min ] },
-      { neg_norm: 0, neg_sub: 0, pos_sub: 2, pos_norm: 0, expect: [ 0.0, kValue.f16.positive.subnormal.min, kValue.f16.positive.subnormal.max ] },
-      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 1, expect: [ 0.0, kValue.f16.positive.min ] },
-      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 2, expect: [ 0.0, kValue.f16.positive.min, kValue.f16.positive.max ] },
-      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 3, expect: [ 0.0, kValue.f16.positive.min, 1.9990234375, kValue.f16.positive.max ] },
-      { neg_norm: 1, neg_sub: 1, pos_sub: 1, pos_norm: 1, expect: [ kValue.f16.negative.min, kValue.f16.negative.subnormal.min, 0.0, kValue.f16.positive.subnormal.min, kValue.f16.positive.min ] },
-      { neg_norm: 2, neg_sub: 2, pos_sub: 2, pos_norm: 2, expect: [ kValue.f16.negative.min, kValue.f16.negative.max, kValue.f16.negative.subnormal.min, kValue.f16.negative.subnormal.max, 0.0, kValue.f16.positive.subnormal.min, kValue.f16.positive.subnormal.max, kValue.f16.positive.min, kValue.f16.positive.max ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ -0.0, 0.0 ] },
+      { neg_norm: 1, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f16.negative.min, -0.0, 0.0] },
+      { neg_norm: 2, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f16.negative.min, kValue.f16.negative.max, -0.0, 0.0 ] },
+      { neg_norm: 3, neg_sub: 0, pos_sub: 0, pos_norm: 0, expect: [ kValue.f16.negative.min, -1.9990234375, kValue.f16.negative.max, -0.0, 0.0 ] },
+      { neg_norm: 0, neg_sub: 1, pos_sub: 0, pos_norm: 0, expect: [ kValue.f16.negative.subnormal.min, -0.0, 0.0 ] },
+      { neg_norm: 0, neg_sub: 2, pos_sub: 0, pos_norm: 0, expect: [ kValue.f16.negative.subnormal.min, kValue.f16.negative.subnormal.max, -0.0, 0.0 ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 1, pos_norm: 0, expect: [ -0.0, 0.0, kValue.f16.positive.subnormal.min ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 2, pos_norm: 0, expect: [ -0.0, 0.0, kValue.f16.positive.subnormal.min, kValue.f16.positive.subnormal.max ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 1, expect: [ -0.0, 0.0, kValue.f16.positive.min ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 2, expect: [ -0.0, 0.0, kValue.f16.positive.min, kValue.f16.positive.max ] },
+      { neg_norm: 0, neg_sub: 0, pos_sub: 0, pos_norm: 3, expect: [ -0.0, 0.0, kValue.f16.positive.min, 1.9990234375, kValue.f16.positive.max ] },
+      { neg_norm: 1, neg_sub: 1, pos_sub: 1, pos_norm: 1, expect: [ kValue.f16.negative.min, kValue.f16.negative.subnormal.min, -0.0, 0.0, kValue.f16.positive.subnormal.min, kValue.f16.positive.min ] },
+      { neg_norm: 2, neg_sub: 2, pos_sub: 2, pos_norm: 2, expect: [ kValue.f16.negative.min, kValue.f16.negative.max, kValue.f16.negative.subnormal.min, kValue.f16.negative.subnormal.max, -0.0, 0.0, kValue.f16.positive.subnormal.min, kValue.f16.positive.subnormal.max, kValue.f16.positive.min, kValue.f16.positive.max ] },
     ]
   )
   .fn(test => {
@@ -1596,7 +1598,7 @@ g.test('fullF16Range')
     const neg_sub = test.params.neg_sub;
     const pos_sub = test.params.pos_sub;
     const pos_norm = test.params.pos_norm;
-    const got = fullF16Range({ neg_norm, neg_sub, pos_sub, pos_norm });
+    const got = scalarF16Range({ neg_norm, neg_sub, pos_sub, pos_norm });
     const expect = test.params.expect;
 
     test.expect(

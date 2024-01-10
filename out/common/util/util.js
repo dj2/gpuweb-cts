@@ -47,17 +47,31 @@ export function assertOK(value) {
   return value;
 }
 
+/** Options for assertReject, shouldReject, and friends. */
+
+
 /**
  * Resolves if the provided promise rejects; rejects if it does not.
  */
-export async function assertReject(p, msg) {
+export async function assertReject(
+expectedName,
+p,
+{ allowMissingStack = false, message } = {})
+{
   try {
     await p;
-    unreachable(msg);
+    unreachable(message);
   } catch (ex) {
-
-    // Assertion OK
-  }}
+    // Asserted as expected
+    if (!allowMissingStack) {
+      const m = message ? ` (${message})` : '';
+      assert(
+        ex instanceof Error && typeof ex.stack === 'string',
+        'threw as expected, but missing stack' + m
+      );
+    }
+  }
+}
 
 /**
  * Assert this code is unreachable. Unconditionally throws an `Error`.
@@ -146,7 +160,7 @@ msg)
     const handle = timeout(() => {
       resolve(undefined);
     }, ms);
-    p.finally(() => clearTimeout(handle));
+    void p.finally(() => clearTimeout(handle));
   });
   return Promise.race([rejectWhenSettled, timeoutPromise]);
 }
@@ -182,14 +196,24 @@ export function sortObjectByKey(v) {
 
 /**
  * Determines whether two JS values are equal, recursing into objects and arrays.
- * NaN is treated specially, such that `objectEquals(NaN, NaN)`.
+ * NaN is treated specially, such that `objectEquals(NaN, NaN)`. +/-0.0 are treated as equal
+ * by default, but can be opted to be distinguished.
+ * @param x the first JS values that get compared
+ * @param y the second JS values that get compared
+ * @param distinguishSignedZero if set to true, treat 0.0 and -0.0 as unequal. Default to false.
  */
-export function objectEquals(x, y) {
+export function objectEquals(
+x,
+y,
+distinguishSignedZero = false)
+{
   if (typeof x !== 'object' || typeof y !== 'object') {
     if (typeof x === 'number' && typeof y === 'number' && Number.isNaN(x) && Number.isNaN(y)) {
       return true;
     }
-    return x === y;
+    // Object.is(0.0, -0.0) is false while (0.0 === -0.0) is true. Other than +/-0.0 and NaN cases,
+    // Object.is works in the same way as ===.
+    return distinguishSignedZero ? Object.is(x, y) : x === y;
   }
   if (x === null || y === null) return x === y;
   if (x.constructor !== y.constructor) return false;
@@ -265,8 +289,8 @@ export function reorder(order, arr) {
     case 'shiftByHalf':{
         // should this be pseudo random?
         return shiftByHalf(arr);
-      }}
-
+      }
+  }
 }
 
 const TypedArrayBufferViewInstances = [
@@ -280,7 +304,6 @@ new Int32Array(),
 new Float16Array(),
 new Float32Array(),
 new Float64Array()];
-
 
 
 
@@ -438,8 +461,8 @@ dst)
  */
 export function filterUniqueValueTestVariants(valueTestVariants) {
   return new Map(
-  valueTestVariants.map((v) => [`m:${v.mult},a:${v.add}`, v])).
-  values();
+    valueTestVariants.map((v) => [`m:${v.mult},a:${v.add}`, v])
+  ).values();
 }
 
 /**

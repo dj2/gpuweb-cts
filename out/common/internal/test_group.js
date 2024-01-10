@@ -1,16 +1,16 @@
 /**
 * AUTO-GENERATED - DO NOT EDIT. Source: https://github.com/gpuweb/cts
 **/import {
-SkipTestCase,
+  SkipTestCase,
 
-UnexpectedPassError } from
+  UnexpectedPassError } from
 
 
 '../framework/fixture.js';
 import {
 
-builderIterateCasesWithSubcases,
-kUnitCaseParamsBuilder } from
+  builderIterateCasesWithSubcases,
+  kUnitCaseParamsBuilder } from
 
 
 '../framework/params_builder.js';
@@ -19,13 +19,19 @@ import { globalTestConfig } from '../framework/test_config.js';
 import { TestCaseRecorder } from '../internal/logging/test_case_recorder.js';
 import { extractPublicParams, mergeParams } from '../internal/params_utils.js';
 import { compareQueries, Ordering } from '../internal/query/compare.js';
-import { TestQuerySingleCase } from '../internal/query/query.js';
+import {
+
+  TestQueryMultiTest,
+  TestQuerySingleCase } from
+
+'../internal/query/query.js';
 import { kPathSeparator } from '../internal/query/separators.js';
 import {
-stringifyPublicParams,
-stringifyPublicParamsUniquely } from
+  stringifyPublicParams,
+  stringifyPublicParamsUniquely } from
 '../internal/query/stringify_params.js';
 import { validQueryPart } from '../internal/query/validQueryPart.js';
+
 import { assert, unreachable } from '../util/util.js';
 
 import { logToWebsocket } from './websocket_logger.js';
@@ -51,7 +57,7 @@ import { logToWebsocket } from './websocket_logger.js';
 
 
 
-
+// Interface for defining tests
 
 
 
@@ -79,8 +85,13 @@ fixture)
   return new TestGroup(fixture);
 }
 
+/** The maximum allowed length of a test query string. Checked by tools/validate. */
+export const kQueryMaxLength = 375;
+
 /** Parameter name for batch number (see also TestBuilder.batch). */
 const kBatchParamName = 'batch__';
+
+
 
 
 
@@ -102,11 +113,11 @@ export class TestGroup {
 
   checkName(name) {
     assert(
-    // Shouldn't happen due to the rule above. Just makes sure that treating
-    // unencoded strings as encoded strings is OK.
-    name === decodeURIComponent(name),
-    `Not decodeURIComponent-idempotent: ${name} !== ${decodeURIComponent(name)}`);
-
+      // Shouldn't happen due to the rule above. Just makes sure that treating
+      // unencoded strings as encoded strings is OK.
+      name === decodeURIComponent(name),
+      `Not decodeURIComponent-idempotent: ${name} !== ${decodeURIComponent(name)}`
+    );
     assert(!this.seen.has(name), `Duplicate test name: ${name}`);
 
     this.seen.add(name);
@@ -127,9 +138,14 @@ export class TestGroup {
     return test;
   }
 
-  validate() {
+  validate(fileQuery) {
     for (const test of this.tests) {
-      test.validate();
+      const testQuery = new TestQueryMultiTest(
+        fileQuery.suite,
+        fileQuery.filePathParts,
+        test.testPath
+      );
+      test.validate(testQuery);
     }
   }
 
@@ -247,7 +263,7 @@ class TestBuilder {
     return this;
   }
 
-  specURL(url) {
+  specURL(_url) {
     return this;
   }
 
@@ -284,7 +300,7 @@ class TestBuilder {
   }
 
   /** Perform various validation/"lint" chenks. */
-  validate() {
+  validate(testQuery) {
     const testPathString = this.testPath.join(kPathSeparator);
     assert(this.testFn !== undefined, () => {
       let s = `Test is missing .fn(): ${testPathString}`;
@@ -294,12 +310,30 @@ class TestBuilder {
       return s;
     });
 
+    assert(
+      testQuery.toString().length <= kQueryMaxLength,
+      () =>
+      `Test query ${testQuery} is too long. Max length is ${kQueryMaxLength} characters. Please shorten names or reduce parameters.`
+    );
+
     if (this.testCases === undefined) {
       return;
     }
 
     const seen = new Set();
     for (const [caseParams, subcases] of builderIterateCasesWithSubcases(this.testCases, null)) {
+      const caseQuery = new TestQuerySingleCase(
+        testQuery.suite,
+        testQuery.filePathParts,
+        testQuery.testPathParts,
+        caseParams
+      ).toString();
+      assert(
+        caseQuery.length <= kQueryMaxLength,
+        () =>
+        `Case query ${caseQuery} is too long. Max length is ${kQueryMaxLength} characters. Please shorten names or reduce parameters.`
+      );
+
       for (const subcaseParams of subcases ?? [{}]) {
         const params = mergeParams(caseParams, subcaseParams);
         assert(this.batchSize === 0 || !(kBatchParamName in params));
@@ -315,9 +349,9 @@ class TestBuilder {
         // A (hopefully) unique representation of a params value.
         const testcaseStringUnique = stringifyPublicParamsUniquely(params);
         assert(
-        !seen.has(testcaseStringUnique),
-        `Duplicate public test case params for test ${testPathString}: ${testcaseString}`);
-
+          !seen.has(testcaseStringUnique),
+          `Duplicate public test case+subcase params for test ${testPathString}: ${testcaseString}`
+        );
         seen.add(testcaseStringUnique);
       }
     }
@@ -366,15 +400,15 @@ class TestBuilder {
   makeCaseSpecific(params, subcases) {
     assert(this.testFn !== undefined, 'No test function (.fn()) for test');
     return new RunCaseSpecific(
-    this.testPath,
-    params,
-    this.isUnimplemented,
-    subcases,
-    this.fixture,
-    this.testFn,
-    this.beforeFn,
-    this.testCreationStack);
-
+      this.testPath,
+      params,
+      this.isUnimplemented,
+      subcases,
+      this.fixture,
+      this.testFn,
+      this.beforeFn,
+      this.testCreationStack
+    );
   }
 
   *iterate(caseFilter) {
@@ -392,9 +426,9 @@ class TestBuilder {
     }
 
     for (const [caseParams, subcases] of builderIterateCasesWithSubcases(
-    this.testCases,
-    caseFilterWithoutBatch))
-    {
+      this.testCases,
+      caseFilterWithoutBatch
+    )) {
       // If batches are not used, yield just one case.
       if (this.batchSize === 0 || subcases === undefined) {
         yield this.makeCaseSpecific(caseParams, subcases);
@@ -412,9 +446,9 @@ class TestBuilder {
       const makeCaseForBatch = (batch) => {
         const sliceStart = batch * this.batchSize;
         return this.makeCaseSpecific(
-        { ...caseParams, [kBatchParamName]: batch },
-        subcaseArray.slice(sliceStart, Math.min(subcaseArray.length, sliceStart + this.batchSize)));
-
+          { ...caseParams, [kBatchParamName]: batch },
+          subcaseArray.slice(sliceStart, Math.min(subcaseArray.length, sliceStart + this.batchSize))
+        );
       };
 
       // If we filter to just one batch, yield it.
@@ -491,6 +525,7 @@ class RunCaseSpecific {
       try {
         await inst.init();
         await this.fn(inst);
+        rec.passed();
       } finally {
         // Runs as long as constructor succeeded, even if initialization or the test failed.
         await inst.finalize();
@@ -500,10 +535,9 @@ class RunCaseSpecific {
       // An error from init or test may have been a SkipTestCase.
       // An error from finalize may have been an eventualAsyncExpectation failure
       // or unexpected validation/OOM error from the GPUDevice.
+      rec.threw(ex);
       if (throwSkip && ex instanceof SkipTestCase) {
         throw ex;
-      } else {
-        rec.threw(ex);
       }
     } finally {
       try {
@@ -540,8 +574,8 @@ class RunCaseSpecific {
             didSeeFail = true;
             break;
           default:
-            unreachable();}
-
+            unreachable();
+        }
       }
       return didSeeFail ? 'fail' : 'pass';
     };
@@ -621,11 +655,11 @@ class RunCaseSpecific {
 
             const params = mergeParams(this.params, subParams);
             const subcaseQuery = new TestQuerySingleCase(
-            selfQuery.suite,
-            selfQuery.filePathParts,
-            selfQuery.testPathParts,
-            params);
-
+              selfQuery.suite,
+              selfQuery.filePathParts,
+              selfQuery.testPathParts,
+              params
+            );
 
             // Limit the maximum number of subcases in flight.
             if (subcasesInFlight >= maxSubcasesInFlight) {
@@ -640,12 +674,12 @@ class RunCaseSpecific {
             // Runs async without waiting so that subsequent subcases can start.
             // All finalization steps will be waited on at the end of the testcase.
             const finalizePromise = this.runTest(
-            subRec,
-            sharedState,
-            params,
-            /* throwSkip */true,
-            getExpectedStatus(subcaseQuery)).
-
+              subRec,
+              sharedState,
+              params,
+              /* throwSkip */true,
+              getExpectedStatus(subcaseQuery)
+            ).
             then(() => {
               subRec.info(new Error('OK'));
             }).
@@ -663,8 +697,8 @@ class RunCaseSpecific {
             finally(subcaseFinishedCallback);
 
             allPreviousSubcasesFinalizedPromise = allPreviousSubcasesFinalizedPromise.then(
-            () => finalizePromise);
-
+              () => finalizePromise
+            );
             ++totalCount;
           }
 
@@ -676,12 +710,12 @@ class RunCaseSpecific {
           }
         } else {
           await this.runTest(
-          rec,
-          sharedState,
-          this.params,
-          /* throwSkip */false,
-          getExpectedStatus(selfQuery));
-
+            rec,
+            sharedState,
+            this.params,
+            /* throwSkip */false,
+            getExpectedStatus(selfQuery)
+          );
         }
       } finally {
         testHeartbeatCallback();
