@@ -254,6 +254,15 @@ export const listing = [
       "operation",
       "memory_sync",
       "texture",
+      "readonly_depth_stencil"
+    ]
+  },
+  {
+    "file": [
+      "api",
+      "operation",
+      "memory_sync",
+      "texture",
       "same_subresource"
     ]
   },
@@ -493,6 +502,14 @@ export const listing = [
       "operation",
       "shader_module",
       "compilation_info"
+    ]
+  },
+  {
+    "file": [
+      "api",
+      "operation",
+      "storage_texture",
+      "read_write"
     ]
   },
   {
@@ -2415,6 +2432,26 @@ export const listing = [
       "expression",
       "call",
       "builtin",
+      "dot4I8Packed"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "call",
+      "builtin",
+      "dot4U8Packed"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "call",
+      "builtin",
       "dpdx"
     ]
   },
@@ -3156,6 +3193,16 @@ export const listing = [
       "call",
       "builtin",
       "workgroupBarrier"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "call",
+      "user",
+      "ptr_params"
     ]
   },
   {
