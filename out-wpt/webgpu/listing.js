@@ -3498,6 +3498,14 @@ export const listing = [
     "file": [
       "shader",
       "execution",
+      "shader_io",
+      "workgroup_size"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
       "shadow"
     ]
   },
@@ -3776,6 +3784,16 @@ export const listing = [
       "call",
       "builtin",
       "exp2"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "floor"
     ]
   },
   {
