@@ -2802,6 +2802,46 @@ export const listing = [
       "expression",
       "call",
       "builtin",
+      "pack4xI8"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "call",
+      "builtin",
+      "pack4xI8Clamp"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "call",
+      "builtin",
+      "pack4xU8"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "call",
+      "builtin",
+      "pack4xU8Clamp"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "call",
+      "builtin",
       "pow"
     ]
   },
@@ -3183,6 +3223,26 @@ export const listing = [
       "call",
       "builtin",
       "unpack4x8unorm"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "call",
+      "builtin",
+      "unpack4xI8"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "call",
+      "builtin",
+      "unpack4xU8"
     ]
   },
   {
@@ -3624,6 +3684,16 @@ export const listing = [
       "call",
       "builtin",
       "acosh"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "arrayLength"
     ]
   },
   {
