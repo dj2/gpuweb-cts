@@ -3289,6 +3289,15 @@ export const listing = [
       "execution",
       "expression",
       "unary",
+      "ai_assignment"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "unary",
       "bool_conversion"
     ]
   },
@@ -4060,6 +4069,14 @@ export const listing = [
     "file": [
       "shader",
       "validation",
+      "extension",
+      "pointer_composite_access"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
       "functions",
       "alias_analysis"
     ]
@@ -4157,6 +4174,14 @@ export const listing = [
       "shader",
       "validation",
       "parse",
+      "continuing"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "parse",
       "diagnostic"
     ]
   },
@@ -4206,6 +4231,14 @@ export const listing = [
       "validation",
       "parse",
       "pipeline_stage"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "parse",
+      "requires"
     ]
   },
   {
