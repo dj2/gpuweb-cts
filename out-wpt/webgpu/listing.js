@@ -3379,6 +3379,15 @@ export const listing = [
       "execution",
       "expression",
       "unary",
+      "indirection"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "unary",
       "u32_complement"
     ]
   },
@@ -3476,6 +3485,13 @@ export const listing = [
       "execution",
       "flow_control",
       "while"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "memory_layout"
     ]
   },
   {
@@ -3644,6 +3660,14 @@ export const listing = [
       "shader",
       "validation",
       "decl",
+      "var"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "decl",
       "var_access_mode"
     ]
   },
@@ -3763,6 +3787,16 @@ export const listing = [
       "call",
       "builtin",
       "atomics"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "barriers"
     ]
   },
   {
@@ -4391,6 +4425,13 @@ export const listing = [
       "validation",
       "uniformity",
       "uniformity"
+    ]
+  },
+  {
+    "file": [
+      "util",
+      "texture",
+      "color_space_conversions"
     ]
   },
   {

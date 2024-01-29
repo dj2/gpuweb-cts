@@ -32,7 +32,7 @@
 </script>
 <script type=module src=/webgpu/common/runtime/wpt.js></script>
 
-<!-- Prefix: "?q="; 8740 variants generated from 2116 tests in 480 files -->
+<!-- Prefix: "?q="; 8803 variants generated from 2127 tests in 485 files -->
 <meta name=variant content='?q=webgpu:api,operation,adapter,requestAdapter:requestAdapter:*'><!-- estimated: 1368.747 ms -->
 <meta name=variant content='?q=webgpu:api,operation,adapter,requestAdapter:requestAdapter_no_parameters:*'><!-- estimated: 384.601 ms -->
 <meta name=variant content='?q=webgpu:api,operation,adapter,requestAdapterInfo:adapter_info:*'><!-- estimated: 136.601 ms -->
@@ -7363,6 +7363,9 @@
 <meta name=variant content='?q=webgpu:shader,execution,expression,unary,i32_conversion:i32:*'><!-- estimated: 123.312 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,expression,unary,i32_conversion:f32:*'><!-- estimated: 132.400 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,expression,unary,i32_conversion:f16:*'><!-- estimated: 709.808 ms -->
+<meta name=variant content='?q=webgpu:shader,execution,expression,unary,indirection:deref:*'><!-- estimated: 0.000 ms -->
+<meta name=variant content='?q=webgpu:shader,execution,expression,unary,indirection:deref_index:*'><!-- estimated: 0.000 ms -->
+<meta name=variant content='?q=webgpu:shader,execution,expression,unary,indirection:deref_member:*'><!-- estimated: 0.000 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,expression,unary,u32_complement:u32_complement:*'><!-- estimated: 122.112 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,expression,unary,u32_conversion:bool:*'><!-- estimated: 123.408 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,expression,unary,u32_conversion:u32:*'><!-- estimated: 112.912 ms -->
@@ -7448,11 +7451,13 @@
 <meta name=variant content='?q=webgpu:shader,execution,flow_control,while:while_continue:*'><!-- estimated: 11.300 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,flow_control,while:while_nested_break:*'><!-- estimated: 25.402 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,flow_control,while:while_nested_continue:*'><!-- estimated: 10.900 ms -->
+<meta name=variant content='?q=webgpu:shader,execution,memory_layout:read_layout:*'><!-- estimated: 0.000 ms -->
+<meta name=variant content='?q=webgpu:shader,execution,memory_layout:write_layout:*'><!-- estimated: 0.000 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,memory_model,adjacent:f16:*'><!-- estimated: 189.000 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,memory_model,atomicity:atomicity:*'><!-- estimated: 231.603 ms -->
-<meta name=variant content='?q=webgpu:shader,execution,memory_model,barrier:workgroup_barrier_store_load:*'><!-- estimated: 315.200 ms -->
-<meta name=variant content='?q=webgpu:shader,execution,memory_model,barrier:workgroup_barrier_load_store:*'><!-- estimated: 263.400 ms -->
-<meta name=variant content='?q=webgpu:shader,execution,memory_model,barrier:workgroup_barrier_store_store:*'><!-- estimated: 246.804 ms -->
+<meta name=variant content='?q=webgpu:shader,execution,memory_model,barrier:workgroup_barrier_store_load:*'><!-- estimated: 630.400 ms -->
+<meta name=variant content='?q=webgpu:shader,execution,memory_model,barrier:workgroup_barrier_load_store:*'><!-- estimated: 526.800 ms -->
+<meta name=variant content='?q=webgpu:shader,execution,memory_model,barrier:workgroup_barrier_store_store:*'><!-- estimated: 493.608 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,memory_model,coherence:corr:*'><!-- estimated: 1429.002 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,memory_model,coherence:coww:*'><!-- estimated: 1475.100 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,memory_model,coherence:cowr:*'><!-- estimated: 1502.904 ms -->
@@ -7551,6 +7556,8 @@
 <meta name=variant content='?q=webgpu:shader,validation,decl,ptr_spelling:ptr_bad_store_type:*'><!-- estimated: 2.901 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,ptr_spelling:ptr_address_space_never_uses_access_mode:*'><!-- estimated: 17.115 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,ptr_spelling:ptr_not_instantiable:*'><!-- estimated: 13.100 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,decl,var:module_scope_types:*'><!-- estimated: 406.000 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,decl,var:function_scope_types:*'><!-- estimated: 116.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,var_access_mode:explicit_access_mode:*'><!-- estimated: 24.714 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,var_access_mode:implicit_access_mode:*'><!-- estimated: 6.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,var_access_mode:read_access:*'><!-- estimated: 15.301 ms -->
@@ -7699,6 +7706,8 @@
 <meta name=variant content='?q=webgpu:shader,validation,expression,call,builtin,atanh:values:*'><!-- estimated: 281.820 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,expression,call,builtin,atanh:integer_argument:*'><!-- estimated: 8.208 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,expression,call,builtin,atomics:stage:*'><!-- estimated: 44.418 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,expression,call,builtin,barriers:only_in_compute:*'><!-- estimated: 36.000 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,expression,call,builtin,barriers:no_return_value:*'><!-- estimated: 12.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,expression,call,builtin,bitcast:bad_const_to_f32:*'><!-- estimated: 185.680 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,expression,call,builtin,bitcast:bad_const_to_f16:*'><!-- estimated: 99.396 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,expression,call,builtin,bitcast:bad_type_constructible:*'><!-- estimated: 58.272 ms -->
@@ -8025,7 +8034,8 @@
 <meta name=variant content='?q=webgpu:shader,validation,parse,literal:f16:val="1.0e%2B999999h";*'><!-- estimated: 45.119 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,literal:f16:val="0x1.0p%2B999999h";*'><!-- estimated: 45.119 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,must_use:declaration:*'><!-- estimated: 13.707 ms -->
-<meta name=variant content='?q=webgpu:shader,validation,parse,must_use:call:*'><!-- estimated: 15.300 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,parse,must_use:call:*'><!-- estimated: 33.150 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,parse,must_use:ignore_result_of_non_must_use_that_returns_call_of_must_use:*'><!-- estimated: 0.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,must_use:builtin_must_use:*'><!-- estimated: 282.800 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,must_use:builtin_no_must_use:*'><!-- estimated: 24.120 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,pipeline_stage:vertex_parsing:*'><!-- estimated: 12.000 ms -->
@@ -8157,7 +8167,7 @@
 <meta name=variant content='?q=webgpu:shader,validation,types,struct:no_indirect_recursion_via_struct_attribute:*'><!-- estimated: 8.802 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,types,struct:no_indirect_recursion_via_struct_member_nested_in_alias:*'><!-- estimated: 1.900 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,types,vector:vector:*'><!-- estimated: 55.685 ms -->
-<meta name=variant content='?q=webgpu:shader,validation,uniformity,uniformity:basics:*'><!-- estimated: 1496.340 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,uniformity,uniformity:basics:*'><!-- estimated: 1783.872 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,uniformity,uniformity:fragment_builtin_values:*'><!-- estimated: 5.200 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,uniformity,uniformity:compute_builtin_values:*'><!-- estimated: 12.500 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,uniformity,uniformity:pointers:*'><!-- estimated: 95.590 ms -->
@@ -8167,6 +8177,7 @@
 <meta name=variant content='?q=webgpu:shader,validation,uniformity,uniformity:binary_expressions:*'><!-- estimated: 1800.192 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,uniformity,uniformity:unary_expressions:*'><!-- estimated: 30.696 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,uniformity,uniformity:functions:*'><!-- estimated: 52.120 ms -->
+<meta name=variant content='?q=webgpu:util,texture,color_space_conversions:util_matches_2d_canvas:*'><!-- estimated: 2.002 ms -->
 <meta name=variant content='?q=webgpu:util,texture,texel_data:unorm_texel_data_in_shader:*'><!-- estimated: 145.012 ms -->
 <meta name=variant content='?q=webgpu:util,texture,texel_data:snorm_texel_data_in_shader:*'><!-- estimated: 83.610 ms -->
 <meta name=variant content='?q=webgpu:util,texture,texel_data:uint_texel_data_in_shader:*'><!-- estimated: 164.240 ms -->
@@ -8673,6 +8684,32 @@
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="srgb";dstColorFormat="rgba16float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="srgb";dstColorFormat="rgba32float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="srgb";dstColorFormat="rgba32float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="r8unorm";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="r8unorm";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="r16float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="r16float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="r32float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="r32float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rg8unorm";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rg8unorm";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rg16float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rg16float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rg32float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rg32float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rgba8unorm";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rgba8unorm";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rgba8unorm-srgb";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rgba8unorm-srgb";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="bgra8unorm";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="bgra8unorm";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="bgra8unorm-srgb";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="bgra8unorm-srgb";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rgb10a2unorm";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rgb10a2unorm";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rgba16float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rgba16float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rgba32float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="srgb";dstColorSpace="display-p3";dstColorFormat="rgba32float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="srgb";dstColorFormat="r8unorm";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="srgb";dstColorFormat="r8unorm";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="srgb";dstColorFormat="r16float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
@@ -8699,6 +8736,32 @@
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="srgb";dstColorFormat="rgba16float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="srgb";dstColorFormat="rgba32float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="srgb";dstColorFormat="rgba32float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="r8unorm";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="r8unorm";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="r16float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="r16float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="r32float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="r32float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rg8unorm";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rg8unorm";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rg16float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rg16float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rg32float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rg32float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rgba8unorm";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rgba8unorm";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rgba8unorm-srgb";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rgba8unorm-srgb";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="bgra8unorm";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="bgra8unorm";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="bgra8unorm-srgb";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="bgra8unorm-srgb";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rgb10a2unorm";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rgb10a2unorm";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rgba16float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rgba16float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rgba32float";dstPremultiplied=true;*'><!-- estimated: 1108.152 ms -->
+<meta name=variant content='?q=webgpu:web_platform,copyToTexture,canvas:color_space_conversion:srcColorSpace="display-p3";dstColorSpace="display-p3";dstColorFormat="rgba32float";dstPremultiplied=false;*'><!-- estimated: 1108.152 ms -->
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,image:from_image:srcDoFlipYDuringCopy=true;dstColorFormat="r8unorm";*'><!-- estimated: 1574.568 ms -->
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,image:from_image:srcDoFlipYDuringCopy=true;dstColorFormat="r16float";*'><!-- estimated: 1574.568 ms -->
 <meta name=variant content='?q=webgpu:web_platform,copyToTexture,image:from_image:srcDoFlipYDuringCopy=true;dstColorFormat="r32float";*'><!-- estimated: 1574.568 ms -->
