@@ -32,7 +32,7 @@
 </script>
 <script type=module src=/webgpu/common/runtime/wpt.js></script>
 
-<!-- Prefix: "?q="; 8803 variants generated from 2127 tests in 485 files -->
+<!-- Prefix: "?q="; 8810 variants generated from 2134 tests in 489 files -->
 <meta name=variant content='?q=webgpu:api,operation,adapter,requestAdapter:requestAdapter:*'><!-- estimated: 1368.747 ms -->
 <meta name=variant content='?q=webgpu:api,operation,adapter,requestAdapter:requestAdapter_no_parameters:*'><!-- estimated: 384.601 ms -->
 <meta name=variant content='?q=webgpu:api,operation,adapter,requestAdapterInfo:adapter_info:*'><!-- estimated: 136.601 ms -->
@@ -1703,7 +1703,7 @@
 <meta name=variant content='?q=webgpu:api,operation,texture_view,read:format:*'><!-- estimated: 1.100 ms -->
 <meta name=variant content='?q=webgpu:api,operation,texture_view,read:dimension:*'><!-- estimated: 0.701 ms -->
 <meta name=variant content='?q=webgpu:api,operation,texture_view,read:aspect:*'><!-- estimated: 0.601 ms -->
-<meta name=variant content='?q=webgpu:api,operation,texture_view,write:format:*'><!-- estimated: 0.600 ms -->
+<meta name=variant content='?q=webgpu:api,operation,texture_view,write:format:*'><!-- estimated: 43.800 ms -->
 <meta name=variant content='?q=webgpu:api,operation,texture_view,write:dimension:*'><!-- estimated: 0.601 ms -->
 <meta name=variant content='?q=webgpu:api,operation,texture_view,write:aspect:*'><!-- estimated: 0.700 ms -->
 <meta name=variant content='?q=webgpu:api,operation,uncapturederror:constructor:*'><!-- estimated: 0.200 ms -->
@@ -7510,6 +7510,9 @@
 <meta name=variant content='?q=webgpu:shader,execution,shadow:loop:*'><!-- estimated: 4.901 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,shadow:switch:*'><!-- estimated: 4.601 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,shadow:if:*'><!-- estimated: 6.700 ms -->
+<meta name=variant content='?q=webgpu:shader,execution,stage:basic_compute:*'><!-- estimated: 1.000 ms -->
+<meta name=variant content='?q=webgpu:shader,execution,stage:basic_render:*'><!-- estimated: 1.000 ms -->
+<meta name=variant content='?q=webgpu:shader,execution,statement,compound:decl:*'><!-- estimated: 89.301 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,statement,increment_decrement:scalar_i32_increment:*'><!-- estimated: 17.801 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,statement,increment_decrement:scalar_i32_increment_overflow:*'><!-- estimated: 9.301 ms -->
 <meta name=variant content='?q=webgpu:shader,execution,statement,increment_decrement:scalar_u32_increment:*'><!-- estimated: 5.900 ms -->
@@ -7543,6 +7546,8 @@
 <meta name=variant content='?q=webgpu:shader,validation,const_assert,const_assert:constant_expression_logical_and_no_assert:*'><!-- estimated: 867.672 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,const_assert,const_assert:constant_expression_logical_and_assert:*'><!-- estimated: 967.464 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,const_assert,const_assert:evaluation_stage:*'><!-- estimated: 20.202 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,decl,compound_statement:decl_conflict:*'><!-- estimated: 20.900 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,decl,compound_statement:decl_use:*'><!-- estimated: 5.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,const:no_direct_recursion:*'><!-- estimated: 1.902 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,const:no_indirect_recursion:*'><!-- estimated: 1.900 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,const:no_indirect_recursion_via_array_size:*'><!-- estimated: 5.202 ms -->
@@ -7558,6 +7563,7 @@
 <meta name=variant content='?q=webgpu:shader,validation,decl,ptr_spelling:ptr_not_instantiable:*'><!-- estimated: 13.100 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,var:module_scope_types:*'><!-- estimated: 406.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,var:function_scope_types:*'><!-- estimated: 116.000 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,decl,var:function_addrspace_at_module_scope:*'><!-- estimated: 2.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,var_access_mode:explicit_access_mode:*'><!-- estimated: 24.714 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,var_access_mode:implicit_access_mode:*'><!-- estimated: 6.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,decl,var_access_mode:read_access:*'><!-- estimated: 15.301 ms -->
@@ -7956,6 +7962,7 @@
 <meta name=variant content='?q=webgpu:shader,validation,parse,comments:line_comment_eof:*'><!-- estimated: 4.500 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,comments:line_comment_terminators:*'><!-- estimated: 10.210 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,comments:unterminated_block_comment:*'><!-- estimated: 17.900 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,parse,compound:parse:*'><!-- estimated: 30.205 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,const:placement:*'><!-- estimated: 10.503 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,const_assert:parse:*'><!-- estimated: 14.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,continuing:placement:*'><!-- estimated: 0.000 ms -->
@@ -8042,9 +8049,9 @@
 <meta name=variant content='?q=webgpu:shader,validation,parse,pipeline_stage:fragment_parsing:*'><!-- estimated: 20.800 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,pipeline_stage:compute_parsing:*'><!-- estimated: 8.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,pipeline_stage:multiple_entry_points:*'><!-- estimated: 1.100 ms -->
-<meta name=variant content='?q=webgpu:shader,validation,parse,pipeline_stage:duplicate_compute_on_function:*'><!-- estimated: 5.302 ms -->
-<meta name=variant content='?q=webgpu:shader,validation,parse,pipeline_stage:duplicate_fragment_on_function:*'><!-- estimated: 2.002 ms -->
-<meta name=variant content='?q=webgpu:shader,validation,parse,pipeline_stage:duplicate_vertex_on_function:*'><!-- estimated: 2.000 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,parse,pipeline_stage:extra_on_compute_function:*'><!-- estimated: 21.208 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,parse,pipeline_stage:extra_on_fragment_function:*'><!-- estimated: 8.008 ms -->
+<meta name=variant content='?q=webgpu:shader,validation,parse,pipeline_stage:extra_on_vertex_function:*'><!-- estimated: 8.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,pipeline_stage:placement:*'><!-- estimated: 33.312 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,requires:requires:*'><!-- estimated: 15.000 ms -->
 <meta name=variant content='?q=webgpu:shader,validation,parse,requires:wgsl_matches_api:*'><!-- estimated: 4.000 ms -->

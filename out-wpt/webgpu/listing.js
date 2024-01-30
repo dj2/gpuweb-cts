@@ -3598,6 +3598,21 @@ export const listing = [
     "file": [
       "shader",
       "execution",
+      "stage"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "statement",
+      "compound"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
       "statement",
       "increment_decrement"
     ]
@@ -3629,6 +3644,14 @@ export const listing = [
       "validation",
       "const_assert",
       "const_assert"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "decl",
+      "compound_statement"
     ]
   },
   {
@@ -4185,6 +4208,14 @@ export const listing = [
       "validation",
       "parse",
       "comments"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "parse",
+      "compound"
     ]
   },
   {
