@@ -329,6 +329,96 @@ fn((t) => {
   t.expectCompileResult(shouldPass, wgsl);
 });
 
+g.test('module_scope_initializers').
+desc('Test that initializers are only supported on address spaces that allow them.').
+params((u) =>
+u.
+combine('initializer', [false, true]).
+combine('kind', ['private', 'storage_ro', 'storage_rw', 'uniform', 'workgroup'])
+).
+fn((t) => {
+  let decl = '<>';
+  switch (t.params.kind) {
+    case 'private':
+      decl = 'var<private> foo : ';
+      break;
+    case 'storage_ro':
+      decl = '@group(0) @binding(0) var<storage, read> foo : ';
+      break;
+    case 'storage_rw':
+      decl = '@group(0) @binding(0) var<storage, read_write> foo : ';
+      break;
+    case 'uniform':
+      decl = '@group(0) @binding(0) var<uniform> foo : ';
+      break;
+    case 'workgroup':
+      decl = 'var<workgroup> foo : ';
+      break;
+  }
+
+  const wgsl = `${decl} u32${t.params.initializer ? ' = 42u' : ''};`;
+  t.expectCompileResult(t.params.kind === 'private' || !t.params.initializer, wgsl);
+});
+
+g.test('handle_initializer').
+desc('Test that initializers are not allowed for handle types').
+params((u) =>
+u.combine('initializer', [false, true]).combine('type', ['sampler', 'texture_2d<f32>'])
+).
+fn((t) => {
+  const wgsl = `
+    @group(0) @binding(0) var foo : ${t.params.type};
+    @group(0) @binding(1) var bar : ${t.params.type}${t.params.initializer ? ' = foo' : ''};`;
+  t.expectCompileResult(!t.params.initializer, wgsl);
+});
+
+// A list of u32 initializers and their validity for the private address space.
+const kInitializers = {
+  'u32()': true,
+  '42u': true,
+  'u32(sqrt(42.0))': true,
+  'user_func()': false,
+  my_const_42u: true,
+  my_override_42u: true,
+  another_private_var: false,
+  'vec4u(1, 2, 3, 4)[my_const_42u / 20]': true,
+  'vec4u(1, 2, 3, 4)[my_override_42u / 20]': true,
+  'vec4u(1, 2, 3, 4)[another_private_var / 20]': false
+};
+
+g.test('initializer_kind').
+desc(
+  'Test that initializers must be const-expression or override-expression for the private address space.'
+).
+params((u) =>
+u.combine('initializer', keysOf(kInitializers)).combine('addrspace', ['private', 'function'])
+).
+fn((t) => {
+  let wgsl = `
+    const my_const_42u = 42u;
+    override my_override_42u : u32;
+    var<private> another_private_var = 42u;
+
+    fn user_func() -> u32 {
+      return 42u;
+    }
+    `;
+
+  if (t.params.addrspace === 'private') {
+    wgsl += `
+      var<private> foo : u32 = ${t.params.initializer};`;
+  } else {
+    wgsl += `
+      fn foo() {
+        var bar : u32 = ${t.params.initializer};
+      }`;
+  }
+  t.expectCompileResult(
+    t.params.addrspace === 'function' || kInitializers[t.params.initializer],
+    wgsl
+  );
+});
+
 g.test('function_addrspace_at_module_scope').
 desc('Test that the function address space is not allowed at module scope.').
 params((u) => u.combine('addrspace', ['private', 'function'])).
@@ -337,5 +427,104 @@ fn((t) => {
     t.params.addrspace === 'private',
     `var<${t.params.addrspace}> foo : i32;`
   );
+});
+
+// A list of resource variable declarations.
+const kResourceDecls = {
+  uniform: 'var<uniform> buffer : vec4f;',
+  storage: 'var<storage> buffer : vec4f;',
+  texture: 'var t : texture_2d<f32>;',
+  sampler: 'var s : sampler;'
+};
+
+g.test('binding_point_on_resources').
+desc('Test that resource variables must have both @group and @binding attributes.').
+params((u) =>
+u.
+combine('decl', keysOf(kResourceDecls)).
+combine('group', ['', '@group(0)']).
+combine('binding', ['', '@binding(0)'])
+).
+fn((t) => {
+  const shouldPass = t.params.group !== '' && t.params.binding !== '';
+  const wgsl = `${t.params.group} ${t.params.binding} ${kResourceDecls[t.params.decl]}`;
+  t.expectCompileResult(shouldPass, wgsl);
+});
+
+g.test('binding_point_on_non_resources').
+desc('Test that non-resource variables cannot have either @group or @binding attributes.').
+params((u) =>
+u.
+combine('addrspace', ['private', 'workgroup']).
+combine('group', ['', '@group(0)']).
+combine('binding', ['', '@binding(0)'])
+).
+fn((t) => {
+  const shouldPass = t.params.group === '' && t.params.binding === '';
+  const wgsl = `${t.params.group} ${t.params.binding} var<${t.params.addrspace}> foo : i32;`;
+  t.expectCompileResult(shouldPass, wgsl);
+});
+
+g.test('binding_point_on_function_var').
+desc('Test that function variables cannot have either @group or @binding attributes.').
+params((u) => u.combine('group', ['', '@group(0)']).combine('binding', ['', '@binding(0)'])).
+fn((t) => {
+  const shouldPass = t.params.group === '' && t.params.binding === '';
+  const wgsl = `
+    fn foo() {
+      ${t.params.group} ${t.params.binding} var bar : i32;
+    }`;
+  t.expectCompileResult(shouldPass, wgsl);
+});
+
+g.test('binding_collisions').
+desc('Test that binding points can collide iff they are not used by the same entry point.').
+params((u) =>
+u.
+combine('a_group', [0, 1]).
+combine('b_group', [0, 1]).
+combine('a_binding', [0, 1]).
+combine('b_binding', [0, 1]).
+combine('b_use', ['same', 'different'])
+).
+fn((t) => {
+  const wgsl = `
+    @group(${t.params.a_group}) @binding(${t.params.a_binding}) var<uniform> a : vec4f;
+    @group(${t.params.b_group}) @binding(${t.params.b_binding}) var<uniform> b : vec4f;
+
+    @fragment
+    fn main1() {
+      _ = a;
+      ${
+  t.params.b_use === 'same' ?
+  '' :
+  `
+      }
+
+    @fragment
+    fn main2() {`
+  }
+      _ = b;
+    }`;
+
+  const collision =
+  t.params.a_group === t.params.b_group && t.params.a_binding === t.params.b_binding;
+  const shouldFail = collision && t.params.b_use === 'same';
+  t.expectCompileResult(!shouldFail, wgsl);
+});
+
+g.test('binding_collision_unused_helper').
+desc('Test that binding points can collide in an unused helper function.').
+fn((t) => {
+  const wgsl = `
+    @group(0) @binding(0) var<uniform> a : vec4f;
+    @group(0) @binding(0) var<uniform> b : vec4f;
+
+    fn foo() {
+      _ = a;
+      _ = b;
+    }`;
+
+  t.expectCompileResult(true, wgsl);
 });
 //# sourceMappingURL=var.spec.js.map
