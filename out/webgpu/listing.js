@@ -3942,6 +3942,16 @@ export const listing = [
       "expression",
       "call",
       "builtin",
+      "derivatives"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
       "dot4I8Packed"
     ]
   },
@@ -4173,6 +4183,16 @@ export const listing = [
       "call",
       "builtin",
       "unpack4xU8"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "workgroupUniformLoad"
     ]
   },
   {
