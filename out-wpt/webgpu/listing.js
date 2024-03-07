@@ -1798,7 +1798,34 @@ export const listing = [
       "execution",
       "expression",
       "binary",
+      "af_matrix_matrix_multiplication"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "binary",
+      "af_matrix_scalar_multiplication"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "binary",
       "af_matrix_subtraction"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "binary",
+      "af_matrix_vector_multiplication"
     ]
   },
   {
@@ -3656,6 +3683,14 @@ export const listing = [
       "execution",
       "shader_io",
       "shared_structs"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "shader_io",
+      "user_io"
     ]
   },
   {
