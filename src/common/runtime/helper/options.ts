@@ -25,12 +25,13 @@ export function optionString(
  * The possible options for the tests.
  */
 export interface CTSOptions {
-  worker?: 'dedicated' | 'shared' | '';
+  worker?: 'dedicated' | 'shared' | 'service' | '';
   debug: boolean;
   compatibility: boolean;
   forceFallbackAdapter: boolean;
   unrollConstEvalLoops: boolean;
-  powerPreference?: GPUPowerPreference | '';
+  powerPreference: GPUPowerPreference | '';
+  logToWebSocket: boolean;
 }
 
 export const kDefaultCTSOptions: CTSOptions = {
@@ -40,6 +41,7 @@ export const kDefaultCTSOptions: CTSOptions = {
   forceFallbackAdapter: false,
   unrollConstEvalLoops: false,
   powerPreference: '',
+  logToWebSocket: false,
 };
 
 /**
@@ -68,6 +70,7 @@ export const kCTSOptionsInfo: OptionsInfos<CTSOptions> = {
       { value: '', description: 'no worker' },
       { value: 'dedicated', description: 'dedicated worker' },
       { value: 'shared', description: 'shared worker' },
+      { value: 'service', description: 'service worker' },
     ],
   },
   debug: { description: 'show more info' },
@@ -83,6 +86,7 @@ export const kCTSOptionsInfo: OptionsInfos<CTSOptions> = {
       { value: 'high-performance', description: 'high-performance' },
     ],
   },
+  logToWebSocket: { description: 'send some logs to ws://localhost:59497/' },
 };
 
 /**

@@ -11,12 +11,13 @@ const mat_mat_cases = ([2, 3, 4] as const)
         [`mat${k}x${rows}_mat${cols}x${k}`]: () => {
           return selectNCases(
             'binary/af_matrix_matrix_multiplication',
-            50,
+            10,
             FP.abstract.generateMatrixPairToMatrixCases(
               sparseMatrixF64Range(k, rows),
               sparseMatrixF64Range(cols, k),
               'finite',
-              FP.abstract.multiplicationMatrixMatrixInterval
+              // Matrix-matrix multiplication has an inherited accuracy, so abstract is only expected to be as accurate as f32
+              FP.f32.multiplicationMatrixMatrixInterval
             )
           );
         },

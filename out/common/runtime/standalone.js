@@ -21,7 +21,7 @@ import {
 
   camelCaseToSnakeCase } from
 './helper/options.js';
-import { TestDedicatedWorker, TestSharedWorker } from './helper/test_worker.js';
+import { TestDedicatedWorker, TestSharedWorker, TestServiceWorker } from './helper/test_worker.js';
 
 const rootQuerySpec = 'webgpu:*';
 let promptBeforeReload = false;
@@ -47,16 +47,10 @@ const { queries: qs, options } = parseSearchParamLikeWithOptions(
   kStandaloneOptionsInfos,
   window.location.search || rootQuerySpec
 );
-const {
-  runnow,
-  debug,
-  unrollConstEvalLoops,
-  powerPreference,
-  compatibility,
-  forceFallbackAdapter
-} = options;
-globalTestConfig.unrollConstEvalLoops = unrollConstEvalLoops;
+const { runnow, debug, powerPreference, compatibility, forceFallbackAdapter } = options;
+globalTestConfig.unrollConstEvalLoops = options.unrollConstEvalLoops;
 globalTestConfig.compatibility = compatibility;
+globalTestConfig.logToWebSocket = options.logToWebSocket;
 
 Logger.globalDebugMode = debug;
 const logger = new Logger();
@@ -66,6 +60,7 @@ setBaseResourcePath('../out/resources');
 const dedicatedWorker =
 options.worker === 'dedicated' ? new TestDedicatedWorker(options) : undefined;
 const sharedWorker = options.worker === 'shared' ? new TestSharedWorker(options) : undefined;
+const serviceWorker = options.worker === 'service' ? new TestServiceWorker(options) : undefined;
 
 const autoCloseOnPass = document.getElementById('autoCloseOnPass');
 const resultsVis = document.getElementById('resultsVis');
@@ -182,6 +177,8 @@ function makeCaseHTML(t) {
       await dedicatedWorker.run(rec, name);
     } else if (sharedWorker) {
       await sharedWorker.run(rec, name);
+    } else if (serviceWorker) {
+      await serviceWorker.run(rec, name);
     } else {
       await t.run(rec);
     }
