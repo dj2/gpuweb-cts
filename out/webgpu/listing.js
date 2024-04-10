@@ -4272,6 +4272,16 @@ export const listing = [
       "expression",
       "call",
       "builtin",
+      "extractBits"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
       "faceForward"
     ]
   },
@@ -4603,6 +4613,16 @@ export const listing = [
       "call",
       "builtin",
       "tan"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "tanh"
     ]
   },
   {
@@ -5055,6 +5075,14 @@ export const listing = [
       "validation",
       "parse",
       "semicolon"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "parse",
+      "shadow_builtins"
     ]
   },
   {
