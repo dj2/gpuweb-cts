@@ -1795,6 +1795,16 @@ export const listing = [
       "execution",
       "expression",
       "access",
+      "structure",
+      "index"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "access",
       "vector",
       "components"
     ]
@@ -4432,7 +4442,37 @@ export const listing = [
       "expression",
       "call",
       "builtin",
+      "pack2x16snorm"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "pack2x16unorm"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
       "pack4x8snorm"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "pack4x8unorm"
     ]
   },
   {
@@ -5243,6 +5283,14 @@ export const listing = [
       "validation",
       "types",
       "matrix"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "types",
+      "ref"
     ]
   },
   {
