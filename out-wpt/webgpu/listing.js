@@ -3927,6 +3927,33 @@ export const listing = [
       "validation",
       "expression",
       "access",
+      "array"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "access",
+      "matrix"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "access",
+      "structure"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "access",
       "vector"
     ]
   },
@@ -4233,6 +4260,16 @@ export const listing = [
       "call",
       "builtin",
       "distance"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "dot"
     ]
   },
   {
@@ -4712,6 +4749,16 @@ export const listing = [
       "expression",
       "call",
       "builtin",
+      "textureDimensions"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
       "textureGather"
     ]
   },
@@ -4733,6 +4780,36 @@ export const listing = [
       "call",
       "builtin",
       "textureLoad"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "textureNumLayers"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "textureNumLevels"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "textureNumSamples"
     ]
   },
   {
@@ -4910,6 +4987,60 @@ export const listing = [
       "shader",
       "validation",
       "expression",
+      "matrix",
+      "add_sub"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "matrix",
+      "and_or_xor"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "matrix",
+      "bitwise_shift"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "matrix",
+      "comparison"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "matrix",
+      "div_rem"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "matrix",
+      "mul"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
       "overload_resolution"
     ]
   },
@@ -5075,6 +5206,14 @@ export const listing = [
       "validation",
       "parse",
       "const_assert"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "parse",
+      "continue"
     ]
   },
   {
@@ -5355,6 +5494,14 @@ export const listing = [
       "validation",
       "shader_io",
       "workgroup_size"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "statement",
+      "break_if"
     ]
   },
   {
