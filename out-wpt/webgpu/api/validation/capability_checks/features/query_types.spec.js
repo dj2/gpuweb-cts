@@ -3,9 +3,9 @@
 **/export const description = `
 Tests for capability checking for features enabling optional query types.
 `;import { makeTestGroup } from '../../../../../common/framework/test_group.js';
-import { ValidationTest } from '../../validation_test.js';
+import { UniqueFeaturesOrLimitsGPUTest } from '../../../../gpu_test.js';
 
-export const g = makeTestGroup(ValidationTest);
+export const g = makeTestGroup(UniqueFeaturesOrLimitsGPUTest);
 
 g.test('createQuerySet').
 desc(
@@ -39,7 +39,7 @@ fn((t) => {
   const shouldException = type === 'timestamp' && !featureContainsTimestampQuery;
 
   t.shouldThrow(shouldException ? 'TypeError' : false, () => {
-    t.device.createQuerySet({ type, count });
+    t.createQuerySetTracked({ type, count });
   });
 });
 
@@ -48,8 +48,6 @@ desc(
   `
   Tests that writing a timestamp throws a type error exception if the features don't contain
   'timestamp-query'.
-
-  TODO: writeTimestamp test is disabled since it's removed from the spec for now.
   `
 ).
 params((u) => u.combine('featureContainsTimestampQuery', [false, true])).
@@ -66,23 +64,10 @@ beforeAllSubcases((t) => {
 fn((t) => {
   const { featureContainsTimestampQuery } = t.params;
 
-  const querySet = t.device.createQuerySet({
+  const querySet = t.createQuerySetTracked({
     type: featureContainsTimestampQuery ? 'timestamp' : 'occlusion',
     count: 2
   });
-
-  {
-    let expected = featureContainsTimestampQuery ? false : 'TypeError';
-    // writeTimestamp no longer exists and this should always TypeError.
-    expected = 'TypeError';
-
-    const encoder = t.createEncoder('non-pass');
-    t.shouldThrow(expected, () => {
-
-      encoder.encoder.writeTimestamp(querySet, 0);
-    });
-    encoder.finish();
-  }
 
   {
     const encoder = t.createEncoder('non-pass');
@@ -99,13 +84,11 @@ fn((t) => {
   {
     const encoder = t.createEncoder('non-pass');
     const view = t.
-    trackForCleanup(
-      t.device.createTexture({
-        size: [16, 16, 1],
-        format: 'rgba8unorm',
-        usage: GPUTextureUsage.RENDER_ATTACHMENT
-      })
-    ).
+    createTextureTracked({
+      size: [16, 16, 1],
+      format: 'rgba8unorm',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT
+    }).
     createView();
     encoder.encoder.
     beginRenderPass({

@@ -4,16 +4,16 @@ Compute pipeline using overridable constants test.
 
 import { makeTestGroup } from '../../../../common/framework/test_group.js';
 import { range } from '../../../../common/util/util.js';
-import { GPUTest } from '../../../gpu_test.js';
+import { AllFeaturesMaxLimitsGPUTest } from '../../../gpu_test.js';
 
-class F extends GPUTest {
-  async ExpectShaderOutputWithConstants(
+class F extends AllFeaturesMaxLimitsGPUTest {
+  async expectShaderOutputWithConstants(
     isAsync: boolean,
     expected: Uint32Array | Float32Array,
     constants: Record<string, GPUPipelineConstantValue>,
     code: string
   ) {
-    const dst = this.device.createBuffer({
+    const dst = this.createBufferTracked({
       size: expected.byteLength,
       usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.STORAGE,
     });
@@ -60,7 +60,7 @@ g.test('basic')
   .params(u => u.combine('isAsync', [true, false]))
   .fn(async t => {
     const count = 11;
-    await t.ExpectShaderOutputWithConstants(
+    await t.expectShaderOutputWithConstants(
       t.params.isAsync,
       new Uint32Array(range(count, i => i)),
       {
@@ -118,7 +118,7 @@ g.test('numeric_id')
   )
   .params(u => u.combine('isAsync', [true, false]))
   .fn(async t => {
-    await t.ExpectShaderOutputWithConstants(
+    await t.expectShaderOutputWithConstants(
       t.params.isAsync,
       new Uint32Array([1, 2, 3]),
       {
@@ -171,7 +171,7 @@ g.test('computed')
 
     const expected = new Uint32Array([2, 4, 8]);
 
-    const buffer = t.device.createBuffer({
+    const buffer = t.createBufferTracked({
       size: 3 * Uint32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.STORAGE,
     });
@@ -222,7 +222,7 @@ g.test('precision')
   .fn(async t => {
     const c1 = 3.14159;
     const c2 = 3.141592653589793;
-    await t.ExpectShaderOutputWithConstants(
+    await t.expectShaderOutputWithConstants(
       t.params.isAsync,
       // These values will get rounded to f32 and createComputePipeline, so the values coming out from the shader won't be the exact same one as shown here.
       new Float32Array([c1, c2]),
@@ -262,7 +262,7 @@ g.test('workgroup_size')
   .fn(async t => {
     const { isAsync, type, size, v } = t.params;
     const workgroup_size_str = v === 'x' ? 'd' : v === 'y' ? '1, d' : '1, 1, d';
-    await t.ExpectShaderOutputWithConstants(
+    await t.expectShaderOutputWithConstants(
       isAsync,
       new Uint32Array([size]),
       {
@@ -311,11 +311,11 @@ g.test('shared_shader_module')
 
     const expects = [new Uint32Array([1]), new Uint32Array([2])];
     const buffers = [
-      t.device.createBuffer({
+      t.createBufferTracked({
         size: Uint32Array.BYTES_PER_ELEMENT,
         usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.STORAGE,
       }),
-      t.device.createBuffer({
+      t.createBufferTracked({
         size: Uint32Array.BYTES_PER_ELEMENT,
         usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.STORAGE,
       }),
@@ -430,19 +430,19 @@ g.test('multi_entry_points')
     ];
 
     const buffers = [
-      t.device.createBuffer({
+      t.createBufferTracked({
         size: Uint32Array.BYTES_PER_ELEMENT,
         usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.STORAGE,
       }),
-      t.device.createBuffer({
+      t.createBufferTracked({
         size: Uint32Array.BYTES_PER_ELEMENT,
         usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.STORAGE,
       }),
-      t.device.createBuffer({
+      t.createBufferTracked({
         size: Uint32Array.BYTES_PER_ELEMENT,
         usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.STORAGE,
       }),
-      t.device.createBuffer({
+      t.createBufferTracked({
         size: Uint32Array.BYTES_PER_ELEMENT,
         usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.STORAGE,
       }),

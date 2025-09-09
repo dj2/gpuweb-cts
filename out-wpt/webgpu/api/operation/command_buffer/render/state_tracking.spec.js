@@ -6,11 +6,12 @@ times in different orders) for setIndexBuffer and setVertexBuffer.
 Equivalent tests for setBindGroup and setPipeline are in programmable/state_tracking.spec.ts.
 Equivalent tests for viewport/scissor/blend/reference are in render/dynamic_state.spec.ts
 `;import { makeTestGroup } from '../../../../../common/framework/test_group.js';
-import { GPUTest, TextureTestMixin } from '../../../../gpu_test.js';
+import { AllFeaturesMaxLimitsGPUTest } from '../../../../gpu_test.js';
+import * as ttu from '../../../../texture_test_utils.js';
 import { TexelView } from '../../../../util/texture/texel_view.js';
 
-class VertexAndIndexStateTrackingTest extends TextureTestMixin(GPUTest) {
-  GetRenderPipelineForTest(arrayStride) {
+class VertexAndIndexStateTrackingTest extends AllFeaturesMaxLimitsGPUTest {
+  getRenderPipelineForTest(arrayStride) {
     return this.device.createRenderPipeline({
       layout: 'auto',
       vertex: {
@@ -94,12 +95,11 @@ fn((t) => {
   // Initialize the vertex buffer with required vertex attributes (position: f32, color: f32x4)
   // Note that the maximum index in the test is 0x10000.
   const kVertexAttributesCount = 0x10000 + 1;
-  const vertexBuffer = t.device.createBuffer({
+  const vertexBuffer = t.createBufferTracked({
     usage: GPUBufferUsage.VERTEX,
     size: t.kVertexAttributeSize * kVertexAttributesCount,
     mappedAtCreation: true
   });
-  t.trackForCleanup(vertexBuffer);
   const vertexAttributes = vertexBuffer.getMappedRange();
   const kPositions = [-0.8, -0.4, 0.0, 0.4, 0.8, -0.4];
   const kColors = [
@@ -128,10 +128,10 @@ fn((t) => {
 
   vertexBuffer.unmap();
 
-  const renderPipeline = t.GetRenderPipelineForTest(t.kVertexAttributeSize);
+  const renderPipeline = t.getRenderPipelineForTest(t.kVertexAttributeSize);
 
   const outputTextureSize = [kPositions.length - 1, 1, 1];
-  const outputTexture = t.device.createTexture({
+  const outputTexture = t.createTextureTracked({
     format: 'rgba8unorm',
     size: outputTextureSize,
     usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT
@@ -172,7 +172,8 @@ fn((t) => {
   renderPass.end();
   t.queue.submit([encoder.finish()]);
 
-  t.expectTexelViewComparisonIsOkInTexture(
+  ttu.expectTexelViewComparisonIsOkInTexture(
+    t,
     { texture: outputTexture },
     TexelView.fromTexelsAsBytes('rgba8unorm', (coord) =>
     coord.x === 1 ? kColors[kPositions.length - 1] : kColors[coord.x]
@@ -205,12 +206,11 @@ fn((t) => {
 
   // Initialize the vertex buffer with required vertex attributes (position: f32, color: f32x4)
   const kVertexAttributesCount = 8;
-  const vertexBuffer = t.device.createBuffer({
+  const vertexBuffer = t.createBufferTracked({
     usage: GPUBufferUsage.VERTEX,
     size: t.kVertexAttributeSize * kVertexAttributesCount,
     mappedAtCreation: true
   });
-  t.trackForCleanup(vertexBuffer);
   const vertexAttributes = vertexBuffer.getMappedRange();
   for (let i = 0; i < kPositions.length; ++i) {
     const baseOffset = t.kVertexAttributeSize * i;
@@ -222,10 +222,10 @@ fn((t) => {
 
   vertexBuffer.unmap();
 
-  const renderPipeline = t.GetRenderPipelineForTest(t.kVertexAttributeSize);
+  const renderPipeline = t.getRenderPipelineForTest(t.kVertexAttributeSize);
 
   const outputTextureSize = [kPositions.length, 1, 1];
-  const outputTexture = t.device.createTexture({
+  const outputTexture = t.createTextureTracked({
     format: 'rgba8unorm',
     size: outputTextureSize,
     usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT
@@ -276,7 +276,8 @@ fn((t) => {
   renderPass.end();
   t.queue.submit([encoder.finish()]);
 
-  t.expectTexelViewComparisonIsOkInTexture(
+  ttu.expectTexelViewComparisonIsOkInTexture(
+    t,
     { texture: outputTexture },
     TexelView.fromTexelsAsBytes('rgba8unorm', (coord) => kColors[coord.x]),
     outputTextureSize
@@ -303,12 +304,11 @@ fn((t) => {
 
 
   // Initialize the vertex buffer with required vertex attributes (position: f32, color: f32x4)
-  const vertexBuffer = t.device.createBuffer({
+  const vertexBuffer = t.createBufferTracked({
     usage: GPUBufferUsage.VERTEX,
     size: t.kVertexAttributeSize * kPositions.length,
     mappedAtCreation: true
   });
-  t.trackForCleanup(vertexBuffer);
   // Note that kPositions[1], kColors[1], kPositions[5] and kColors[5] are not used.
   const vertexAttributes = vertexBuffer.getMappedRange();
   for (let i = 0; i < kPositions.length; ++i) {
@@ -321,12 +321,12 @@ fn((t) => {
   vertexBuffer.unmap();
 
   // Create two render pipelines with different vertex attribute strides
-  const renderPipeline1 = t.GetRenderPipelineForTest(t.kVertexAttributeSize);
-  const renderPipeline2 = t.GetRenderPipelineForTest(t.kVertexAttributeSize * 2);
+  const renderPipeline1 = t.getRenderPipelineForTest(t.kVertexAttributeSize);
+  const renderPipeline2 = t.getRenderPipelineForTest(t.kVertexAttributeSize * 2);
 
   const kPointsCount = kPositions.length - 1;
   const outputTextureSize = [kPointsCount, 1, 1];
-  const outputTexture = t.device.createTexture({
+  const outputTexture = t.createTextureTracked({
     format: 'rgba8unorm',
     size: outputTextureSize,
     usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT
@@ -361,7 +361,8 @@ fn((t) => {
 
   t.queue.submit([encoder.finish()]);
 
-  t.expectTexelViewComparisonIsOkInTexture(
+  ttu.expectTexelViewComparisonIsOkInTexture(
+    t,
     { texture: outputTexture },
     TexelView.fromTexelsAsBytes('rgba8unorm', (coord) =>
     coord.x === 1 ? new Uint8Array([0, 0, 0, 255]) : kColors[coord.x]
@@ -502,7 +503,7 @@ fn((t) => {
 
   const kPointsCount = 4;
   const outputTextureSize = [kPointsCount, 1, 1];
-  const outputTexture = t.device.createTexture({
+  const outputTexture = t.createTextureTracked({
     format: 'rgba8unorm',
     size: [kPointsCount, 1, 1],
     usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT
@@ -539,7 +540,8 @@ fn((t) => {
   kColors.subarray(4)];
 
 
-  t.expectTexelViewComparisonIsOkInTexture(
+  ttu.expectTexelViewComparisonIsOkInTexture(
+    t,
     { texture: outputTexture },
     TexelView.fromTexelsAsBytes('rgba8unorm', (coord) => kExpectedColors[coord.x]),
     outputTextureSize
@@ -562,12 +564,11 @@ fn((t) => {
 
 
   // Initialize the vertex buffer with required vertex attributes (position: f32, color: f32x4)
-  const vertexBuffer = t.device.createBuffer({
+  const vertexBuffer = t.createBufferTracked({
     usage: GPUBufferUsage.VERTEX,
     size: t.kVertexAttributeSize * kPositions.length,
     mappedAtCreation: true
   });
-  t.trackForCleanup(vertexBuffer);
   const vertexAttributes = vertexBuffer.getMappedRange();
   for (let i = 0; i < kPositions.length; ++i) {
     const baseOffset = t.kVertexAttributeSize * i;
@@ -581,11 +582,11 @@ fn((t) => {
   // Initialize the index buffer with 2 uint16 indices (2, 3).
   const indexBuffer = t.makeBufferWithContents(new Uint16Array([2, 3]), GPUBufferUsage.INDEX);
 
-  const renderPipeline = t.GetRenderPipelineForTest(t.kVertexAttributeSize);
+  const renderPipeline = t.getRenderPipelineForTest(t.kVertexAttributeSize);
 
   const kPointsCount = 4;
   const outputTextureSize = [kPointsCount, 1, 1];
-  const outputTexture = t.device.createTexture({
+  const outputTexture = t.createTextureTracked({
     format: 'rgba8unorm',
     size: [kPointsCount, 1, 1],
     usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT
@@ -616,7 +617,8 @@ fn((t) => {
 
   t.queue.submit([encoder.finish()]);
 
-  t.expectTexelViewComparisonIsOkInTexture(
+  ttu.expectTexelViewComparisonIsOkInTexture(
+    t,
     { texture: outputTexture },
     TexelView.fromTexelsAsBytes('rgba8unorm', (coord) => kColors[coord.x]),
     outputTextureSize

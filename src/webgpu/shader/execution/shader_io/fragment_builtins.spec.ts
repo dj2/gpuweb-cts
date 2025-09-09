@@ -20,13 +20,19 @@ is evaluated per-fragment or per-sample. With @interpolate(, sample) or usage of
 import { makeTestGroup } from '../../../../common/framework/test_group.js';
 import { ErrorWithExtra, assert, range, unreachable } from '../../../../common/util/util.js';
 import { InterpolationSampling, InterpolationType } from '../../../constants.js';
-import { GPUTest } from '../../../gpu_test.js';
+import { getBlockInfoForTextureFormat } from '../../../format_info.js';
+import { AllFeaturesMaxLimitsGPUTest, GPUTest } from '../../../gpu_test.js';
+import { getProvokingVertexForFlatInterpolationEitherSampling } from '../../../inter_stage.js';
 import { getMultisampleFragmentOffsets } from '../../../multisample_info.js';
-import { dotProduct, subtractVectors } from '../../../util/math.js';
+import * as ttu from '../../../texture_test_utils.js';
+import { dotProduct, subtractVectors, align } from '../../../util/math.js';
+import { PerTexelComponent } from '../../../util/texture/texel_data.js';
 import { TexelView } from '../../../util/texture/texel_view.js';
-import { findFailedPixels } from '../../../util/texture/texture_ok.js';
+import { findFailedPixels, PerPixelComparison } from '../../../util/texture/texture_ok.js';
 
-export const g = makeTestGroup(GPUTest);
+class FragmentBuiltinTest extends AllFeaturesMaxLimitsGPUTest {}
+
+export const g = makeTestGroup(FragmentBuiltinTest);
 
 const s_deviceToPipelineMap = new WeakMap<
   GPUDevice,
@@ -138,17 +144,15 @@ function copyRGBA8EncodedFloatTexturesToBufferIncludingMultisampledTextures(
   assert(isTextureSameDimensions(textures[0], textures[3]));
   const { width, height, sampleCount } = textures[0];
 
-  const copyBuffer = t.device.createBuffer({
+  const copyBuffer = t.createBufferTracked({
     size: width * height * sampleCount * 4 * 4,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
   });
-  t.trackForCleanup(copyBuffer);
 
-  const buffer = t.device.createBuffer({
+  const buffer = t.createBufferTracked({
     size: copyBuffer.size,
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
   });
-  t.trackForCleanup(buffer);
 
   const pipeline = getCopyMultisamplePipelineForDevice(t.device, textures);
   const encoder = t.device.createCommandEncoder();
@@ -343,7 +347,7 @@ function generateFragmentInputs({
 
     const cw = isTriangleClockwise(windowPoints2D);
     const frontFacing = frontFace === 'cw' ? cw : !cw;
-    const fragmentOffsets = getMultisampleFragmentOffsets(sampleCount)!;
+    const fragmentOffsets = getMultisampleFragmentOffsets(sampleCount);
 
     for (let y = 0; y < height; ++y) {
       for (let x = 0; x < width; ++x) {
@@ -426,11 +430,17 @@ function computeFragmentPosition({
 /**
  * Creates a function that will compute the interpolation of an inter-stage variable.
  */
-function createInterStageInterpolationFn(
+async function createInterStageInterpolationFn(
+  t: GPUTest,
   interStagePoints: number[][],
   type: InterpolationType,
   sampling: InterpolationSampling | undefined
 ) {
+  const provokingVertex =
+    type === 'flat' && sampling === 'either'
+      ? await getProvokingVertexForFlatInterpolationEitherSampling(t)
+      : 'first';
+
   return function ({
     baseVertexIndex,
     fragmentBarycentricCoords,
@@ -439,7 +449,9 @@ function createInterStageInterpolationFn(
   }: FragData) {
     const triangleInterStagePoints = interStagePoints.slice(baseVertexIndex, baseVertexIndex + 3);
     const barycentricCoords =
-      sampling === 'center' ? fragmentBarycentricCoords : sampleBarycentricCoords;
+      sampling === 'center' || sampling === undefined
+        ? fragmentBarycentricCoords
+        : sampleBarycentricCoords;
     switch (type) {
       case 'perspective':
         return triangleInterStagePoints[0].map((_, colNum: number) =>
@@ -456,7 +468,7 @@ function createInterStageInterpolationFn(
         );
         break;
       case 'flat':
-        return triangleInterStagePoints[0];
+        return triangleInterStagePoints[provokingVertex === 'first' ? 0 : 2];
         break;
       default:
         unreachable();
@@ -469,12 +481,13 @@ function createInterStageInterpolationFn(
  * and then return [1, 0, 0, 0] if all interpolated values are between 0.0 and 1.0 inclusive
  * or [-1, 0, 0, 0] otherwise.
  */
-function createInterStageInterpolationBetween0And1TestFn(
+async function createInterStageInterpolationBetween0And1TestFn(
+  t: GPUTest,
   interStagePoints: number[][],
   type: InterpolationType,
   sampling: InterpolationSampling | undefined
 ) {
-  const interpolateFn = createInterStageInterpolationFn(interStagePoints, type, sampling);
+  const interpolateFn = await createInterStageInterpolationFn(t, interStagePoints, type, sampling);
   return function (fragData: FragData) {
     const interpolatedValues = interpolateFn(fragData);
     const allTrue = interpolatedValues.reduce((all, v) => all && v >= 0 && v <= 1, true);
@@ -517,9 +530,8 @@ function computeSampleMask({ sampleMask }: FragData) {
  * backends like M1 Mac so it seems better to stick to rgba8unorm here and test
  * using a storage buffer in a fragment shader separately.
  *
- * We can't use rgba32float because it's optional. We can't use rgba16float
- * because it's optional in compat. We can't we use rgba32uint as that can't be
- * multisampled.
+ * We can't use rgba32float, nor rgba16float, nor rgba32uint as they can't be
+ * multisampled in all feature levels.
  */
 async function renderFragmentShaderInputsTo4TexturesAndReadbackValues(
   t: GPUTest,
@@ -581,7 +593,7 @@ async function renderFragmentShaderInputsTo4TexturesAndReadbackValues(
 
       struct FragmentIn {
         @builtin(position) position: vec4f,
-        @location(0) @interpolate(${interpolate}) interpolatedValue: vec4f,
+@location(0) @interpolate(${interpolate}) interpolatedValue: vec4f,
         ${fragInCode}
       };
 
@@ -615,8 +627,8 @@ async function renderFragmentShaderInputsTo4TexturesAndReadbackValues(
     `,
   });
 
-  const textures = range(4, () => {
-    const texture = t.device.createTexture({
+  const textures = range(4, () =>
+    t.createTextureTracked({
       size: [width, height],
       usage:
         GPUTextureUsage.RENDER_ATTACHMENT |
@@ -624,10 +636,8 @@ async function renderFragmentShaderInputsTo4TexturesAndReadbackValues(
         GPUTextureUsage.COPY_SRC,
       format: 'rgba8unorm',
       sampleCount,
-    });
-    t.trackForCleanup(texture);
-    return texture;
-  });
+    })
+  );
 
   const pipeline = t.device.createRenderPipeline({
     layout: 'auto',
@@ -650,11 +660,10 @@ async function renderFragmentShaderInputsTo4TexturesAndReadbackValues(
     },
   });
 
-  const uniformBuffer = t.device.createBuffer({
+  const uniformBuffer = t.createBufferTracked({
     size: 8,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-  t.trackForCleanup(uniformBuffer);
   t.device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([width, height]));
 
   const viewport = [0, 0, width, height, ...nearFar] as const;
@@ -758,7 +767,8 @@ g.test('inputs,position')
         { type: 'linear', sampling: 'center' },
         { type: 'linear', sampling: 'centroid' },
         { type: 'linear', sampling: 'sample' },
-        { type: 'flat' },
+        { type: 'flat', sampling: 'first' },
+        { type: 'flat', sampling: 'either' },
       ] as const)
   )
   .beforeAllSubcases(t => {
@@ -839,11 +849,15 @@ g.test('inputs,interStage')
       .combine('nearFar', [[0, 1] as const, [0.25, 0.75] as const] as const)
       .combine('sampleCount', [1, 4] as const)
       .combine('interpolation', [
+        { type: 'perspective' },
         { type: 'perspective', sampling: 'center' },
         { type: 'perspective', sampling: 'sample' },
+        { type: 'linear' },
         { type: 'linear', sampling: 'center' },
         { type: 'linear', sampling: 'sample' },
         { type: 'flat' },
+        { type: 'flat', sampling: 'first' },
+        { type: 'flat', sampling: 'either' },
       ] as const)
   )
   .beforeAllSubcases(t => {
@@ -892,7 +906,7 @@ g.test('inputs,interStage')
       nearFar,
       sampleCount,
       clipSpacePoints,
-      interpolateFn: createInterStageInterpolationFn(interStagePoints, type, sampling),
+      interpolateFn: await createInterStageInterpolationFn(t, interStagePoints, type, sampling),
     });
 
     t.expectOK(
@@ -1026,7 +1040,8 @@ g.test('inputs,interStage,centroid')
       nearFar,
       sampleCount,
       clipSpacePoints,
-      interpolateFn: createInterStageInterpolationBetween0And1TestFn(
+      interpolateFn: await createInterStageInterpolationBetween0And1TestFn(
+        t,
         interStagePoints,
         type,
         sampling
@@ -1062,7 +1077,8 @@ g.test('inputs,sample_index')
         { type: 'linear', sampling: 'center' },
         { type: 'linear', sampling: 'centroid' },
         { type: 'linear', sampling: 'sample' },
-        { type: 'flat' },
+        { type: 'flat', sampling: 'first' },
+        { type: 'flat', sampling: 'either' },
       ] as const)
   )
   .beforeAllSubcases(t => {
@@ -1146,7 +1162,8 @@ g.test('inputs,front_facing')
         { type: 'linear', sampling: 'center' },
         { type: 'linear', sampling: 'centroid' },
         { type: 'linear', sampling: 'sample' },
-        { type: 'flat' },
+        { type: 'flat', sampling: 'first' },
+        { type: 'flat', sampling: 'either' },
       ] as const)
   )
   .beforeAllSubcases(t => {
@@ -1318,7 +1335,8 @@ g.test('inputs,sample_mask')
         { type: 'linear', sampling: 'center' },
         { type: 'linear', sampling: 'centroid' },
         { type: 'linear', sampling: 'sample' },
-        { type: 'flat' },
+        { type: 'flat', sampling: 'first' },
+        { type: 'flat', sampling: 'either' },
       ] as const)
       .beginSubcases()
       .combineWithParams([
@@ -1351,6 +1369,7 @@ g.test('inputs,sample_mask')
       interpolation: { type, sampling },
     } = t.params;
     t.skipIfInterpolationTypeOrSamplingNotSupported({ type, sampling });
+    t.skipIf(t.isCompatibility, 'sample_mask is not supported in compatibility mode');
   })
   .fn(async t => {
     const {
@@ -1407,4 +1426,935 @@ g.test('inputs,sample_mask')
         maxDiffULPsForFloatFormat: 0,
       })
     );
+  });
+
+const kSizes = [
+  [15, 15],
+  [16, 16],
+  [17, 17],
+  [19, 13],
+  [13, 10],
+  [111, 2],
+  [2, 111],
+  [35, 2],
+  [2, 35],
+  [53, 13],
+  [13, 53],
+] as const;
+
+/**
+ * @returns The population count of input.
+ *
+ * @param input Treated as an unsigned 32-bit integer
+ */
+function popcount(input: number): number {
+  let n = input;
+  n = n - ((n >> 1) & 0x55555555);
+  n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
+  return (((n + (n >> 4)) & 0xf0f0f0f) * 0x1010101) >> 24;
+}
+
+/**
+ * Runs a subgroup builtin test for fragment shaders
+ *
+ * This test draws a full screen in 2 separate draw calls (half screen each).
+ * Results are checked for each draw.
+ * @param t The base test
+ * @param format The framebuffer format
+ * @param fsShader The fragment shader with the following interface:
+ *                 Location 0 output is framebuffer with format
+ *                 Group 0 binding 0 is a u32 sized data
+ * @param width The framebuffer width
+ * @param height The framebuffer height
+ * @param checker A functor to check the framebuffer values
+ */
+async function runSubgroupTest(
+  t: FragmentBuiltinTest,
+  format: GPUTextureFormat,
+  fsShader: string,
+  width: number,
+  height: number,
+  checker: (data: Uint32Array) => Error | undefined
+) {
+  const vsShader = `
+@vertex
+fn vsMain(@builtin(vertex_index) index : u32) -> @builtin(position) vec4f {
+  const vertices = array(
+    vec2(-1, -1), vec2(-1,  1), vec2( 1,  1),
+    vec2(-1, -1), vec2( 1, -1), vec2( 1,  1),
+  );
+  return vec4f(vec2f(vertices[index]), 0, 1);
+}`;
+
+  const pipeline = t.device.createRenderPipeline({
+    layout: 'auto',
+    vertex: {
+      module: t.device.createShaderModule({ code: vsShader }),
+    },
+    fragment: {
+      module: t.device.createShaderModule({ code: fsShader }),
+      targets: [{ format }],
+    },
+    primitive: {
+      topology: 'triangle-list',
+    },
+  });
+
+  const { blockWidth, blockHeight, bytesPerBlock } = getBlockInfoForTextureFormat(format);
+  assert(bytesPerBlock !== undefined);
+
+  const blocksPerRow = width / blockWidth;
+  const blocksPerColumn = height / blockHeight;
+  const bytesPerRow = align(blocksPerRow * (bytesPerBlock ?? 1), 256);
+  const byteLength = bytesPerRow * blocksPerColumn;
+  const uintLength = byteLength / 4;
+
+  for (let i = 0; i < 2; i++) {
+    const framebuffer = t.createTextureTracked({
+      size: [width, height],
+      usage:
+        GPUTextureUsage.COPY_SRC |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT |
+        GPUTextureUsage.TEXTURE_BINDING,
+      format,
+    });
+
+    const encoder = t.device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({
+      colorAttachments: [
+        {
+          view: framebuffer.createView(),
+          loadOp: 'clear',
+          storeOp: 'store',
+        },
+      ],
+    });
+    pass.setPipeline(pipeline);
+    // Draw the upper-left triangle (vertices 0-2) or the lower-right triangle (vertices 3-5)
+    pass.draw(3, 1, i * 3);
+    pass.end();
+    t.queue.submit([encoder.finish()]);
+
+    const buffer = ttu.copyWholeTextureToNewBufferSimple(t, framebuffer, 0);
+    const readback = await t.readGPUBufferRangeTyped(buffer, {
+      srcByteOffset: 0,
+      type: Uint32Array,
+      typedLength: uintLength,
+      method: 'copy',
+    });
+    const data: Uint32Array = readback.data;
+
+    t.expectOK(checker(data));
+  }
+}
+
+const kMaximumSubgroupSize = 128;
+// A non-zero magic number indicating no expectation error, in order to prevent the false no-error
+// result from zero-initialization.
+const kSubgroupShaderNoError = 17;
+
+/**
+ * Checks subgroup_size builtin value consistency.
+ *
+ * The builtin subgroup_size is not assumed to be uniform in fragment shaders.
+ * Therefore, this function checks the value is a power of two within the device
+ * limits and that the ballot size is less than the stated size.
+ * @param data An array of vec4u that contains (per texel):
+ *             * subgroup_size builtin value
+ *             * balloted active invocations number
+ *             * balloted subgroup size all active invocations agreed on, otherwise 0
+ *             * error flag, should be equal to kSubgroupShaderNoError or shader found
+ *               expectation failed otherwise.
+ * @param format The texture format for data
+ * @param min The minimum subgroup size from the device
+ * @param max The maximum subgroup size from the device
+ * @param width The width of the framebuffer
+ * @param height The height of the framebuffer
+ */
+function checkSubgroupSizeConsistency(
+  data: Uint32Array,
+  format: GPUTextureFormat,
+  min: number,
+  max: number,
+  width: number,
+  height: number
+): Error | undefined {
+  const { blockWidth, blockHeight, bytesPerBlock } = getBlockInfoForTextureFormat(format);
+  const blocksPerRow = width / blockWidth;
+  // Image copies require bytesPerRow to be a multiple of 256.
+  const bytesPerRow = align(blocksPerRow * (bytesPerBlock ?? 1), 256);
+  const uintsPerRow = bytesPerRow / 4;
+  const uintsPerTexel = (bytesPerBlock ?? 1) / blockWidth / blockHeight / 4;
+
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const offset = uintsPerRow * row + col * uintsPerTexel;
+      const subgroupSize = data[offset];
+      const countActive = data[offset + 1];
+      const ballotedSubgroupSize = data[offset + 2];
+      const error = data[offset + 3];
+
+      if (error === 0) {
+        // Inactive fragment get error `0` instead of noError. Check all output being zero.
+        if (subgroupSize !== 0 || countActive !== 0 || ballotedSubgroupSize !== 0) {
+          return new Error(
+            `Unexpected zero error with non-zero outputs for (${row}, ${col}): got output [${subgroupSize}, ${countActive}, ${ballotedSubgroupSize}, ${error}]`
+          );
+        }
+        continue;
+      }
+
+      if (popcount(subgroupSize) !== 1) {
+        return new Error(`Subgroup size '${subgroupSize}' is not a power of two`);
+      }
+
+      if (subgroupSize < min) {
+        return new Error(`Subgroup size '${subgroupSize}' is less than minimum '${min}'`);
+      }
+      if (max < subgroupSize) {
+        return new Error(`Subgroup size '${subgroupSize}' is greater than maximum '${max}'`);
+      }
+
+      if (subgroupSize < countActive) {
+        return new Error(`Unexpected active invocations number larger than subgroup size
+-       icoord: (${row}, ${col})
+- subgroupSize: ${subgroupSize}
+-  countActive: ${countActive}`);
+      }
+
+      if (subgroupSize !== ballotedSubgroupSize) {
+        return new Error(`Inconsistent subgroup size
+-                 icoord: (${row}, ${col})
+-           subgroupSize: ${subgroupSize}
+- balloted subgroup size: ${ballotedSubgroupSize}`);
+      }
+
+      if (error !== kSubgroupShaderNoError) {
+        return new Error(
+          `Unexpected error value
+-   icoord: (${row}, ${col})
+- expected: noError (${kSubgroupShaderNoError})
+-      got: ${error}`
+        );
+      }
+    }
+  }
+
+  return undefined;
+}
+
+g.test('subgroup_size')
+  .desc('Tests subgroup_size values')
+  .params(u =>
+    u
+      .combine('size', kSizes)
+      .beginSubcases()
+      .combineWithParams([{ format: 'rgba32uint' }] as const)
+  )
+  .fn(async t => {
+    t.skipIfDeviceDoesNotHaveFeature('subgroups' as GPUFeatureName);
+    interface SubgroupProperties extends GPUAdapterInfo {
+      subgroupMinSize: number;
+      subgroupMaxSize: number;
+    }
+    const { subgroupMinSize, subgroupMaxSize } = t.device.adapterInfo as SubgroupProperties;
+
+    const fsShader = `
+enable subgroups;
+
+const subgroupMaxSize = ${kMaximumSubgroupSize}u;
+const noError = ${kSubgroupShaderNoError}u;
+
+const width = ${t.params.size[0]};
+const height = ${t.params.size[1]};
+
+@fragment
+fn fsMain(
+  @builtin(position) pos : vec4f,
+  @builtin(subgroup_size) sg_size : u32,
+) -> @location(0) vec4u {
+  var error: u32 = noError;
+
+  let ballotActive = countOneBits(subgroupBallot(true));
+  let countActive = ballotActive.x + ballotActive.y + ballotActive.z + ballotActive.w;
+  // Validate that balloted active invocations number no larger than subgroup size
+  if (countActive > sg_size) {
+    error++;
+  }
+
+  var subgroupSizeBallotedInvocations: u32 = 0u;
+  var ballotedSubgroupSize: u32 = 0u;
+  for (var i: u32 = 0; i <= subgroupMaxSize; i++) {
+    let ballotSubgroupSizeEqualI = countOneBits(subgroupBallot(sg_size == i));
+    let countSubgroupSizeEqualI = ballotSubgroupSizeEqualI.x + ballotSubgroupSizeEqualI.y + ballotSubgroupSizeEqualI.z + ballotSubgroupSizeEqualI.w;
+    subgroupSizeBallotedInvocations += countSubgroupSizeEqualI;
+    // Validate that all active invocations see the same subgroup size, i.e. ballotedSubgroupSize
+    ballotedSubgroupSize = select(ballotedSubgroupSize, i, countSubgroupSizeEqualI == countActive);
+    error = select(error, error + 1, countSubgroupSizeEqualI != countActive && countSubgroupSizeEqualI != 0);
+  }
+  // Validate that all active invocations balloted in previous loop
+  if (subgroupSizeBallotedInvocations != countActive) {
+    error++;
+  }
+  // Validate that ballotedSubgroupSize is identical to subgroup_size
+  if (ballotedSubgroupSize != sg_size) {
+    error++;
+  }
+
+  return vec4u(sg_size, countActive, ballotedSubgroupSize, error);
+}`;
+
+    await runSubgroupTest(
+      t,
+      t.params.format,
+      fsShader,
+      t.params.size[0],
+      t.params.size[1],
+      (data: Uint32Array) => {
+        return checkSubgroupSizeConsistency(
+          data,
+          t.params.format,
+          subgroupMinSize,
+          subgroupMaxSize,
+          t.params.size[0],
+          t.params.size[1]
+        );
+      }
+    );
+  });
+
+/**
+ * Checks subgroup_invocation_id value consistency
+ *
+ * Very little uniformity is expected for subgroup_invocation_id.
+ * This function checks that all ids are less than the subgroup size
+ * (not the ballot size, since the subgroup id can be allocated to
+ * inactivate invocations between active ones) and no id is repeated.
+ * @param data An array of vec4u that contains (per texel):
+ *             * subgroup_invocation_id
+ *             * subgroup size
+ *             * ballot active invocation number
+ *             * error flag, should be equal to kSubgroupShaderNoError or shader found
+ *               expectation failed otherwise.
+ * @param format The texture format of data
+ * @param width The width of the framebuffer
+ * @param height The height of the framebuffer
+ */
+function checkSubgroupInvocationIdConsistency(
+  data: Uint32Array,
+  format: GPUTextureFormat,
+  width: number,
+  height: number
+): Error | undefined {
+  const { blockWidth, blockHeight, bytesPerBlock } = getBlockInfoForTextureFormat(format);
+  const blocksPerRow = width / blockWidth;
+  const bytesPerRow = align(blocksPerRow * (bytesPerBlock ?? 1), 256);
+  const uintsPerRow = bytesPerRow / 4;
+  const uintsPerTexel = (bytesPerBlock ?? 1) / blockWidth / blockHeight / 4;
+
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const offset = uintsPerRow * row + col * uintsPerTexel;
+      const id = data[offset];
+      const sgSize = data[offset + 1];
+      const ballotSize = data[offset + 2];
+      const error = data[offset + 3];
+
+      if (error === 0) {
+        // Inactive fragment get error `0` instead of noError. Check all output being zero.
+        if (id !== 0 || sgSize !== 0 || ballotSize !== 0) {
+          return new Error(
+            `Unexpected zero error with non-zero outputs for (${row}, ${col}): got output [${id}, ${sgSize}, ${ballotSize}, ${error}]`
+          );
+        }
+        continue;
+      }
+
+      if (sgSize < id) {
+        return new Error(
+          `Invocation id '${id}' is greater than subgroup size '${sgSize}' for (${row}, ${col})`
+        );
+      }
+
+      if (sgSize < ballotSize) {
+        return new Error(
+          `Ballot size '${ballotSize}' is greater than subgroup size '${sgSize}' for (${row}, ${col})`
+        );
+      }
+
+      if (error !== kSubgroupShaderNoError) {
+        return new Error(
+          `Unexpected error value
+-   icoord: (${row}, ${col})
+- expected: noError (${kSubgroupShaderNoError})
+-      got: ${error}`
+        );
+      }
+    }
+  }
+
+  return undefined;
+}
+
+g.test('subgroup_invocation_id')
+  .desc('Tests subgroup_invocation_id built-in value')
+  .params(u =>
+    u
+      .combine('size', kSizes)
+      .beginSubcases()
+      .combineWithParams([{ format: 'rgba32uint' }] as const)
+  )
+  .fn(async t => {
+    t.skipIfDeviceDoesNotHaveFeature('subgroups' as GPUFeatureName);
+    const fsShader = `
+enable subgroups;
+
+const width = ${t.params.size[0]};
+const height = ${t.params.size[1]};
+
+const subgroupMaxSize = ${kMaximumSubgroupSize}u;
+// A non-zero magic number indicating no expectation error, in order to prevent the
+// false no-error result from zero-initialization.
+const noError = ${kSubgroupShaderNoError}u;
+
+@fragment
+fn fsMain(
+  @builtin(position) pos : vec4f,
+  @builtin(subgroup_invocation_id) id : u32,
+  @builtin(subgroup_size) sg_size : u32,
+) -> @location(0) vec4u {
+
+  var error: u32 = noError;
+
+  // Validate that reported subgroup size is no larger than subgroupMaxSize
+  if (sg_size > subgroupMaxSize) {
+    error++;
+  }
+
+  // Validate that reported subgroup invocation id is smaller than subgroup size
+  if (id >= sg_size) {
+    error++;
+  }
+
+  // Validate that each subgroup id is assigned to at most one active invocation
+  // in the subgroup
+  var countAssignedId: u32 = 0u;
+  for (var i: u32 = 0; i < subgroupMaxSize; i++) {
+    let ballotIdEqualsI = countOneBits(subgroupBallot(id == i));
+    let countInvocationIdEqualsI = ballotIdEqualsI.x + ballotIdEqualsI.y + ballotIdEqualsI.z + ballotIdEqualsI.w;
+    // Validate an id assigned at most once
+    error += select(1u, 0u, countInvocationIdEqualsI <= 1);
+    // Validate id larger than subgroup size will not get balloted
+    error += select(1u, 0u, (id < sg_size) || (countInvocationIdEqualsI == 0));
+    // Sum up the assigned invocation number of each id
+    countAssignedId += countInvocationIdEqualsI;
+  }
+  // Validate that all active invocation get counted during the above loop
+  let ballotActive = countOneBits(subgroupBallot(true));
+  let activeInvocations = ballotActive.x + ballotActive.y + ballotActive.z + ballotActive.w;
+  if (activeInvocations != countAssignedId) {
+    error++;
+  }
+
+  return vec4u(id, sg_size, activeInvocations, error);
+}`;
+
+    await runSubgroupTest(
+      t,
+      t.params.format,
+      fsShader,
+      t.params.size[0],
+      t.params.size[1],
+      (data: Uint32Array) => {
+        return checkSubgroupInvocationIdConsistency(
+          data,
+          t.params.format,
+          t.params.size[0],
+          t.params.size[1]
+        );
+      }
+    );
+  });
+
+/**
+ * Checks primitive_index value consistency
+ *
+ * Renders fullscreen triangles using the given draw arguments, writing the
+ * primitive_index of each to the render target. Then reads back the texture and
+ * compares the last primitive_index written to the expected value. All args are
+ * passed directly to draw/drawIndexed unless specified otherwise.
+ * @param indices An array of indices to be used as a 32 bit index buffer.
+ *                Causes drawIndexed to be used instead of draw.
+ * @param topology The primitive topology to use.
+ * @param expected The expected value of the last primitive_index drawn.
+ */
+function runPrimitiveIndexTest(
+  t: FragmentBuiltinTest,
+  {
+    count,
+    instances = 1,
+    firstVertex = 0,
+    firstInstance = 0,
+    firstIndex = 0,
+    vertices = null,
+    indices = null,
+    topology = 'triangle-list',
+    cullMode = 'none',
+    width = 4,
+    height = 4,
+    expected,
+  }: {
+    count: number;
+    instances?: number;
+    firstVertex?: number;
+    firstInstance?: number;
+    firstIndex?: number;
+    vertices?: number[] | null;
+    indices?: number[] | null;
+    topology?: GPUPrimitiveTopology;
+    cullMode?: GPUCullMode;
+    width?: number;
+    height?: number;
+    expected: number | PerPixelComparison<PerTexelComponent<number>>[];
+  }
+) {
+  const shader = `
+enable primitive_index;
+
+@vertex
+fn vsFullscreenMain(@builtin(vertex_index) index : u32) -> @builtin(position) vec4f {
+  const vertices = array(
+    vec2(-1, -1), vec2( 3,  -1), vec2(-1,  3),
+  );
+  return vec4f(vec2f(vertices[index%3]), 0, 1);
+}
+
+@vertex
+fn vsBufferMain(@builtin(vertex_index) index : u32, @location(0) pos : vec2f) -> @builtin(position) vec4f {
+  return vec4f(pos, 0, 1);
+}
+
+@fragment
+fn fsMain(@builtin(primitive_index) pid : u32) -> @location(0) vec4u {
+  return vec4u(pid, 0, 0, 0);
+}`;
+
+  const format = 'r32uint';
+
+  const module = t.device.createShaderModule({ code: shader });
+
+  const buffers: GPUVertexBufferLayout[] = [];
+
+  if (vertices) {
+    buffers.push({
+      arrayStride: Float32Array.BYTES_PER_ELEMENT * 2,
+      attributes: [
+        {
+          format: 'float32x2',
+          offset: 0,
+          shaderLocation: 0,
+        },
+      ],
+    });
+  }
+
+  const pipeline = t.device.createRenderPipeline({
+    layout: 'auto',
+    vertex: {
+      module,
+      entryPoint: vertices ? 'vsBufferMain' : 'vsFullscreenMain',
+      buffers,
+    },
+    fragment: {
+      module,
+      targets: [{ format }],
+    },
+    primitive: {
+      topology,
+      cullMode,
+      stripIndexFormat: topology.includes('list') ? undefined : 'uint32',
+    },
+  });
+
+  const framebuffer = t.createTextureTracked({
+    size: [width, height],
+    usage:
+      GPUTextureUsage.COPY_SRC |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT |
+      GPUTextureUsage.TEXTURE_BINDING,
+    format,
+  });
+
+  let vertexBuffer: GPUBuffer | null = null;
+  if (vertices) {
+    vertexBuffer = t.createBufferTracked({
+      size: vertices.length * Float32Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.VERTEX,
+      mappedAtCreation: true,
+    });
+    const float32Array = new Float32Array(vertexBuffer.getMappedRange());
+    float32Array.set(vertices);
+    vertexBuffer.unmap();
+  }
+
+  let indexBuffer: GPUBuffer | null = null;
+  if (indices) {
+    indexBuffer = t.createBufferTracked({
+      size: indices.length * Uint32Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.INDEX,
+      mappedAtCreation: true,
+    });
+    const uint32Array = new Uint32Array(indexBuffer.getMappedRange());
+    uint32Array.set(indices);
+    indexBuffer.unmap();
+  }
+
+  const encoder = t.device.createCommandEncoder();
+  const pass = encoder.beginRenderPass({
+    colorAttachments: [
+      {
+        view: framebuffer.createView(),
+        loadOp: 'clear',
+        clearValue: [0xffffffff, 0, 0, 0], // Clear to max uint32 to ensure that primitive id 0 is testable
+        storeOp: 'store',
+      },
+    ],
+  });
+  pass.setPipeline(pipeline);
+  // Draw the primitives
+  if (vertexBuffer) {
+    pass.setVertexBuffer(0, vertexBuffer);
+  }
+
+  if (indexBuffer) {
+    pass.setIndexBuffer(indexBuffer, 'uint32');
+    pass.drawIndexed(count, instances, firstIndex, firstVertex, firstInstance);
+  } else {
+    pass.draw(count, instances, firstVertex, firstInstance);
+  }
+  pass.end();
+  t.queue.submit([encoder.finish()]);
+
+  if (Array.isArray(expected)) {
+    ttu.expectSinglePixelComparisonsAreOkInTexture(t, { texture: framebuffer }, expected);
+  } else {
+    ttu.expectSingleColorWithTolerance(t, framebuffer, format, {
+      size: [width, height, 1],
+      exp: { R: expected },
+      layout: { mipLevel: 0 },
+      maxFractionalDiff: 0,
+    });
+  }
+}
+
+g.test('primitive_index,basic')
+  .desc('Tests primitive_index built-in value')
+  .params(u =>
+    u
+      .beginSubcases()
+      .combine('triCount', [1, 4, 16])
+      // None of the following should affect the primitive_index
+      .combine('instances', [1, 4, 16])
+      .combine('firstVertex', [0, 1, 4])
+      .combine('firstIndex', [0, 3, 9])
+      .combine('firstInstance', [0, 1, 4])
+  )
+  .fn(t => {
+    const { triCount, instances, firstVertex, firstIndex, firstInstance } = t.params;
+    t.skipIfDeviceDoesNotHaveFeature('primitive-index' as GPUFeatureName);
+
+    runPrimitiveIndexTest(t, {
+      count: triCount * 3,
+      instances,
+      firstVertex,
+      firstInstance,
+      expected: triCount - 1,
+    });
+
+    const indices: number[] = [];
+    for (let i = 0; i < triCount + Math.ceil(firstIndex / 3); ++i) {
+      indices.push(0, 1, 2);
+    }
+
+    runPrimitiveIndexTest(t, {
+      count: triCount * 3,
+      instances,
+      firstVertex,
+      firstInstance,
+      firstIndex,
+      indices,
+      expected: triCount - 1,
+    });
+  });
+
+g.test('primitive_index,primitive_reset')
+  .desc(
+    'Tests that the primitive_index built-in value does not increment or reset across primitive resets'
+  )
+  .fn(t => {
+    t.skipIfDeviceDoesNotHaveFeature('primitive-index' as GPUFeatureName);
+
+    runPrimitiveIndexTest(t, {
+      count: 10,
+      topology: 'triangle-strip',
+      indices: [0, 1, 2, 0, 1, 0xffffffff, 0, 1, 2, 0],
+      expected: 4,
+    });
+  });
+
+g.test('primitive_index,discarded_primitves')
+  .desc(
+    'Tests that the primitives which are discarded due to culling, size, or shape still increment the primitive_index built-in'
+  )
+  .params(u =>
+    u.beginSubcases().combine('vertices', [
+      [0.3, 0.3, 0.3, 0.3, 0.3, 0.3], // Zero size triangle
+      [0.3, 0.3, 0.3, 0.3, 0.3, 1.3], // Degenerate triangle
+      [0.3, 0.3, 0.30001, 0.3, 0.3, 0.30001], // Sub-pixel triangle
+      [2, 2, 2, 3, 3, 2], // Offscreen triangle
+      [-1, -1, -1, 3, 3, -1], // Backface culled triangle
+    ])
+  )
+  .fn(t => {
+    const { vertices } = t.params;
+    t.skipIfDeviceDoesNotHaveFeature('primitive-index' as GPUFeatureName);
+
+    runPrimitiveIndexTest(t, {
+      count: 6,
+      vertices: [...vertices, -1, -1, 3, -1, -1, 3], // Append a fulscreen triangle to the test vertices
+      cullMode: 'back',
+      expected: 1,
+    });
+  });
+
+g.test('primitive_index,topologies')
+  .desc('Tests that the primitive_index built-in value works every topology')
+  .fn(t => {
+    t.skipIfDeviceDoesNotHaveFeature('primitive-index' as GPUFeatureName);
+
+    const triListVertices = [
+      //           0,2
+      //            +
+      //           /|
+      //          /.|
+      //         +--+--+
+      //        /|..|  |
+      //       /.|..|  |
+      // -2,0 +--+--O--+--+ 2,0
+      //         |  |  |
+      //         |  |  |
+      //         +--+--+
+      //            |
+      //            |
+      //            +
+      //           0,-2
+      0, 0, -2, 0, 0, 2,
+
+      //           0,2
+      //            +
+      //            |\
+      //            |.\
+      //         +--+--+
+      //         |  |..|\
+      //         |  |..|.\
+      // -2,0 +--+--O--+--+ 2,0
+      //         |  |  |
+      //         |  |  |
+      //         +--+--+
+      //            |
+      //            |
+      //            +
+      //           0,-2
+      0, 0, 0, 2, 2, 0,
+
+      //           0,2
+      //            +
+      //            |
+      //            |
+      //         +--+--+
+      //         |  |  |
+      //         |  |  |
+      // -2,0 +--+--O--+--+ 2,0
+      //       \.|..|  |
+      //        \|..|  |
+      //         +--+--+
+      //          \.|
+      //           \|
+      //            +
+      //           0,-2
+      0, 0, -2, 0, 0, -2,
+
+      //           0,2
+      //            +
+      //            |
+      //            |
+      //         +--+--+
+      //         |  |  |
+      //         |  |  |
+      // -2,0 +--+--O--+--+ 2,0
+      //         |  |..|./
+      //         |  |..|/
+      //         +--+--+
+      //            |./
+      //            |/
+      //            +
+      //           0,-2
+      0, 0, 0, -2, 2, 0,
+    ];
+    runPrimitiveIndexTest(t, {
+      count: 12,
+      topology: 'triangle-list',
+      vertices: triListVertices,
+      width: 2,
+      height: 2,
+      expected: [
+        { coord: [0, 0, 0], exp: { R: 0 } },
+        { coord: [1, 0, 0], exp: { R: 1 } },
+        { coord: [0, 1, 0], exp: { R: 2 } },
+        { coord: [1, 1, 0], exp: { R: 3 } },
+      ],
+    });
+
+    //         v2
+    //          +
+    //          |
+    //          |
+    //       +--+--+
+    //       |  |  |
+    //       |v1|v4|
+    // v0 +--+--.--+--+ v3
+    // v7    |  |  |
+    //       |  |  |
+    //       +--+--+
+    //          |
+    //          |
+    //          +
+    //          v5,v6
+    //
+    //  #0  #1  #2  #3  #4  #5
+    //   +  +   +   +-+ +   +-+
+    //  /|  |\  |\  |/  |    \|
+    // +-+  +-+ +-+ +   +     +
+    const triStripVertices = [-2, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, -2, 0, 0, -2, 0];
+    runPrimitiveIndexTest(t, {
+      count: 8,
+      topology: 'triangle-strip',
+      vertices: triStripVertices,
+      width: 2,
+      height: 2,
+      expected: [
+        { coord: [0, 0, 0], exp: { R: 0 } },
+        { coord: [1, 0, 0], exp: { R: 2 } },
+        { coord: [1, 1, 0], exp: { R: 3 } },
+        { coord: [0, 1, 0], exp: { R: 5 } },
+      ],
+    });
+
+    //   v1,v5   v2,v6
+    // +---*---+---*---+
+    // |       |       |
+    // |       |       |
+    // |       |       |
+    // +-------o-------+
+    // |       |       |
+    // |       |       |
+    // |       |       |
+    // +---*---+---*---+
+    //   v0,v4   v3,v7
+    const lineVertices = [-0.5, -1, -0.5, 1, 0.5, 1, 0.5, -1, -0.5, -1, -0.5, 1, 0.5, 1, 0.5, -1];
+    runPrimitiveIndexTest(t, {
+      count: 4,
+      topology: 'line-list',
+      vertices: lineVertices,
+      width: 2,
+      expected: [
+        { coord: [0, 0, 0], exp: { R: 0 } },
+        { coord: [0, 1, 0], exp: { R: 0 } },
+        { coord: [1, 0, 0], exp: { R: 1 } },
+        { coord: [1, 1, 0], exp: { R: 1 } },
+      ],
+    });
+
+    runPrimitiveIndexTest(t, {
+      count: 8,
+      topology: 'line-list',
+      vertices: lineVertices,
+      width: 2,
+      expected: [
+        { coord: [0, 0, 0], exp: { R: 2 } },
+        { coord: [0, 1, 0], exp: { R: 2 } },
+        { coord: [1, 0, 0], exp: { R: 3 } },
+        { coord: [1, 1, 0], exp: { R: 3 } },
+      ],
+    });
+
+    runPrimitiveIndexTest(t, {
+      count: 4,
+      topology: 'line-strip',
+      vertices: lineVertices,
+      width: 2,
+      expected: [
+        { coord: [0, 0, 0], exp: { R: 0 } },
+        { coord: [0, 1, 0], exp: { R: 0 } },
+        { coord: [1, 0, 0], exp: { R: 2 } },
+        { coord: [1, 1, 0], exp: { R: 2 } },
+      ],
+    });
+
+    runPrimitiveIndexTest(t, {
+      count: 8,
+      topology: 'line-strip',
+      vertices: lineVertices,
+      width: 2,
+      expected: [
+        { coord: [0, 0, 0], exp: { R: 4 } },
+        { coord: [0, 1, 0], exp: { R: 4 } },
+        { coord: [1, 0, 0], exp: { R: 6 } },
+        { coord: [1, 1, 0], exp: { R: 6 } },
+      ],
+    });
+
+    //   v1,v5   v2,v6
+    // +-------+-------+
+    // |       |       |
+    // |   *   |   *   |
+    // |       |       |
+    // +-------o-------+
+    // |       |       |
+    // |   *   |   *   |
+    // |       |       |
+    // +-------+-------+
+    //   v0,v4   v3,v7
+    const pointVertices = [
+      -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5,
+    ];
+    runPrimitiveIndexTest(t, {
+      count: 4,
+      topology: 'point-list',
+      vertices: pointVertices,
+      width: 2,
+      height: 2,
+      expected: [
+        { coord: [0, 1, 0], exp: { R: 0 } },
+        { coord: [1, 1, 0], exp: { R: 1 } },
+        { coord: [0, 0, 0], exp: { R: 2 } },
+        { coord: [1, 0, 0], exp: { R: 3 } },
+      ],
+    });
+
+    runPrimitiveIndexTest(t, {
+      count: 8,
+      topology: 'point-list',
+      vertices: pointVertices,
+      width: 2,
+      height: 2,
+      expected: [
+        { coord: [0, 1, 0], exp: { R: 4 } },
+        { coord: [1, 1, 0], exp: { R: 5 } },
+        { coord: [0, 0, 0], exp: { R: 6 } },
+        { coord: [1, 0, 0], exp: { R: 7 } },
+      ],
+    });
   });

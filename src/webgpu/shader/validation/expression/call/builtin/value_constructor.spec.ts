@@ -23,11 +23,6 @@ const kScalarTypes = ['bool', 'i32', 'u32', 'f32', 'f16'];
 g.test('scalar_zero_value')
   .desc('Tests zero value scalar constructors')
   .params(u => u.combine('type', kScalarTypes))
-  .beforeAllSubcases(t => {
-    if (t.params.type === 'f16') {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const enable = t.params.type === 'f16' ? 'enable f16;' : '';
     const code = `${enable}
@@ -43,11 +38,6 @@ g.test('scalar_value')
       .combine('type', kScalarTypes)
       .combine('value_type', [...kScalarTypes, 'vec2u', 'S', 'array<u32, 2>'])
   )
-  .beforeAllSubcases(t => {
-    if (t.params.type === 'f16' || t.params.value_type === 'f16') {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const enable = t.params.type === 'f16' || t.params.value_type === 'f16' ? 'enable f16;' : '';
     const code = `${enable}
@@ -63,11 +53,6 @@ g.test('vector_zero_value')
       .beginSubcases()
       .combine('size', [2, 3, 4] as const)
   )
-  .beforeAllSubcases(t => {
-    if (t.params.type === 'f16') {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const abstract = t.params.type === 'abstract-int' || t.params.type === 'abstract-float';
     const param = abstract ? '' : `<${t.params.type}>`;
@@ -111,13 +96,6 @@ g.test('vector_splat')
       .beginSubcases()
       .combine('size', [2, 3, 4] as const)
   )
-  .beforeAllSubcases(t => {
-    const ty = Type[t.params.type];
-    const eleTy = Type[t.params.ele_type];
-    if (ty.requiresF16() || eleTy.requiresF16()) {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const eleTy = Type[t.params.ele_type];
     const abstract = t.params.type === 'abstract-int' || t.params.type === 'abstract-float';
@@ -161,13 +139,6 @@ g.test('vector_copy')
       .combine('decl_size', [2, 3, 4] as const)
       .combine('value_size', [2, 3, 4] as const)
   )
-  .beforeAllSubcases(t => {
-    const ty = Type[t.params.decl_type];
-    const eleTy = Type[t.params.value_type];
-    if (ty.requiresF16() || eleTy.requiresF16()) {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const declTy = Type[t.params.decl_type];
     const valueTy = Type[t.params.value_type];
@@ -216,13 +187,6 @@ g.test('vector_elementwise')
       .combine('num_eles', [2, 3, 4, 5] as const)
       .combine('full_type', [true, false] as const)
   )
-  .beforeAllSubcases(t => {
-    const ty = Type[t.params.type];
-    const eleTy = Type[t.params.ele_type];
-    if (ty.requiresF16() || eleTy.requiresF16()) {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const eleTy = Type[t.params.ele_type];
     const abstract = t.params.type === 'abstract-int' || t.params.type === 'abstract-float';
@@ -280,13 +244,6 @@ g.test('vector_mixed')
       .combine('num_eles', [3, 4, 5] as const)
       .combine('full_type', [true, false] as const)
   )
-  .beforeAllSubcases(t => {
-    const ty = Type[t.params.type];
-    const eleTy = Type[t.params.ele_type];
-    if (ty.requiresF16() || eleTy.requiresF16()) {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const eleTy = Type[t.params.ele_type];
     const abstract = t.params.type === 'abstract-int' || t.params.type === 'abstract-float';
@@ -349,11 +306,6 @@ g.test('matrix_zero_value')
       .combine('rows', [2, 3, 4] as const)
       .combine('cols', [2, 3, 4] as const)
   )
-  .beforeAllSubcases(t => {
-    if (t.params.type === 'f16') {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const decl = `mat${t.params.cols}x${t.params.rows}<${t.params.type}>`;
     const enable = t.params.type === 'f16' ? 'enable f16;' : '';
@@ -379,13 +331,6 @@ g.test('matrix_copy')
       .combine('c2', [2, 3, 4] as const)
       .combine('r2', [2, 3, 4] as const)
   )
-  .beforeAllSubcases(t => {
-    const t1 = Type[t.params.type1];
-    const t2 = Type[t.params.type2];
-    if (t1.requiresF16() || t2.requiresF16()) {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const t1 = Type[t.params.type1];
     const t2 = Type[t.params.type2];
@@ -412,13 +357,6 @@ g.test('matrix_column')
       .combine('c2', [2, 3, 4] as const)
       .combine('r2', [2, 3, 4] as const)
   )
-  .beforeAllSubcases(t => {
-    const t1 = Type[t.params.type1];
-    const t2 = Type[t.params.type2];
-    if (t1.requiresF16() || t2.requiresF16()) {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const t1 = Type[t.params.type1];
     const t2 = Type[t.params.type2];
@@ -454,13 +392,6 @@ g.test('matrix_elementwise')
       .combine('c2', [2, 3, 4] as const)
       .combine('r2', [2, 3, 4] as const)
   )
-  .beforeAllSubcases(t => {
-    const t1 = Type[t.params.type1];
-    const t2 = Type[t.params.type2];
-    if (t1.requiresF16() || t2.requiresF16()) {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const t1 = Type[t.params.type1];
     const t2 = Type[t.params.type2];
@@ -708,11 +639,6 @@ const kConstructors = {
 g.test('must_use')
   .desc('Tests that value constructors must be used')
   .params(u => u.combine('ctor', keysOf(kConstructors)).combine('use', [true, false] as const))
-  .beforeAllSubcases(t => {
-    if (t.params.ctor.includes('f16')) {
-      t.selectDeviceOrSkipTestCase('shader-f16');
-    }
-  })
   .fn(t => {
     const code = `
     ${t.params.ctor.includes('f16') ? 'enable f16;' : ''}
@@ -724,4 +650,78 @@ g.test('must_use')
       ${t.params.use ? '_ =' : ''} ${kConstructors[t.params.ctor]};
     }`;
     t.expectCompileResult(t.params.use, code);
+  });
+
+g.test('partial_eval')
+  .desc('Tests that mixed runtime and early eval expressions catch errors')
+  .params(u =>
+    u
+      .combine('eleTy', ['i32', 'u32'] as const)
+      .combine('compTy', ['array', 'vec2', 'vec3', 'vec4', 'S'] as const)
+      .combine('stage', ['constant', 'runtime'] as const)
+      .beginSubcases()
+      .expandWithParams(t => {
+        const cases = [];
+        switch (t.compTy) {
+          case 'array':
+            cases.push({ numEles: 2, index: 0 });
+            cases.push({ numEles: 2, index: 1 });
+            cases.push({ numEles: 3, index: 0 });
+            cases.push({ numEles: 3, index: 1 });
+            cases.push({ numEles: 3, index: 2 });
+            break;
+          case 'vec2':
+            cases.push({ numEles: 2, index: 0 });
+            cases.push({ numEles: 2, index: 1 });
+            break;
+          case 'vec3':
+            cases.push({ numEles: 3, index: 0 });
+            cases.push({ numEles: 3, index: 1 });
+            cases.push({ numEles: 3, index: 2 });
+            break;
+          case 'vec4':
+            cases.push({ numEles: 4, index: 0 });
+            cases.push({ numEles: 4, index: 1 });
+            cases.push({ numEles: 4, index: 2 });
+            cases.push({ numEles: 4, index: 3 });
+            break;
+          case 'S':
+            cases.push({ numEles: 2, index: 0 });
+            cases.push({ numEles: 2, index: 1 });
+            break;
+        }
+        return cases;
+      })
+  )
+  .fn(t => {
+    const eleTy = Type['abstract-int'];
+    const value = t.params.eleTy === 'i32' ? 0xfffffffff : -1;
+    let compParams = '';
+    for (let i = 0; i < t.params.numEles; i++) {
+      if (t.params.index === i) {
+        switch (t.params.stage) {
+          case 'constant':
+            compParams += `${eleTy.create(value).wgsl()}, `;
+            break;
+          case 'runtime':
+            compParams += `v, `;
+            break;
+        }
+      } else {
+        compParams += `v, `;
+      }
+    }
+    const wgsl = `
+struct S {
+  x : ${t.params.eleTy},
+  y : ${t.params.eleTy},
+}
+
+fn foo() {
+  var v : ${t.params.eleTy};
+  let tmp = ${t.params.compTy}(${compParams});
+}`;
+
+    const shader_error = t.params.stage === 'constant';
+    t.expectCompileResult(!shader_error, wgsl);
   });

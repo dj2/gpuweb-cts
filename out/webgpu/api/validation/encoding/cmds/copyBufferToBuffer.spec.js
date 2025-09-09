@@ -25,12 +25,12 @@ Test Plan:
 * Source buffer and destination buffer are the same buffer
 `;import { makeTestGroup } from '../../../../../common/framework/test_group.js';
 import { kBufferUsages } from '../../../../capability_info.js';
-import { kResourceStates } from '../../../../gpu_test.js';
+import { kResourceStates, AllFeaturesMaxLimitsGPUTest } from '../../../../gpu_test.js';
 import { kMaxSafeMultipleOf8 } from '../../../../util/math.js';
-import { ValidationTest } from '../../validation_test.js';
+import * as vtu from '../../validation_test_utils.js';
 
-class F extends ValidationTest {
-  TestCopyBufferToBuffer(options)
+class F extends AllFeaturesMaxLimitsGPUTest {
+  testCopyBufferToBuffer(options)
 
 
 
@@ -66,11 +66,11 @@ combine('dstBufferState', kResourceStates)
 ).
 fn((t) => {
   const { srcBufferState, dstBufferState } = t.params;
-  const srcBuffer = t.createBufferWithState(srcBufferState, {
+  const srcBuffer = vtu.createBufferWithState(t, srcBufferState, {
     size: 16,
     usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
   });
-  const dstBuffer = t.createBufferWithState(dstBufferState, {
+  const dstBuffer = vtu.createBufferWithState(t, dstBufferState, {
     size: 16,
     usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
   });
@@ -83,7 +83,7 @@ fn((t) => {
   'FinishError' :
   'SubmitError';
 
-  t.TestCopyBufferToBuffer({
+  t.testCopyBufferToBuffer({
     srcBuffer,
     srcOffset: 0,
     dstBuffer,
@@ -102,27 +102,27 @@ paramsSubcasesOnly([
 { srcMismatched: true, dstMismatched: false },
 { srcMismatched: false, dstMismatched: true }]
 ).
-beforeAllSubcases((t) => {
-  t.selectMismatchedDeviceOrSkipTestCase(undefined);
-}).
+beforeAllSubcases((t) => t.usesMismatchedDevice()).
 fn((t) => {
   const { srcMismatched, dstMismatched } = t.params;
 
   const srcBufferDevice = srcMismatched ? t.mismatchedDevice : t.device;
-  const srcBuffer = srcBufferDevice.createBuffer({
-    size: 16,
-    usage: GPUBufferUsage.COPY_SRC
-  });
-  t.trackForCleanup(srcBuffer);
+  const srcBuffer = t.trackForCleanup(
+    srcBufferDevice.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.COPY_SRC
+    })
+  );
 
   const dstBufferDevice = dstMismatched ? t.mismatchedDevice : t.device;
-  const dstBuffer = dstBufferDevice.createBuffer({
-    size: 16,
-    usage: GPUBufferUsage.COPY_DST
-  });
-  t.trackForCleanup(dstBuffer);
+  const dstBuffer = t.trackForCleanup(
+    dstBufferDevice.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.COPY_DST
+    })
+  );
 
-  t.TestCopyBufferToBuffer({
+  t.testCopyBufferToBuffer({
     srcBuffer,
     srcOffset: 0,
     dstBuffer,
@@ -141,11 +141,11 @@ combine('dstUsage', kBufferUsages)
 fn((t) => {
   const { srcUsage, dstUsage } = t.params;
 
-  const srcBuffer = t.device.createBuffer({
+  const srcBuffer = t.createBufferTracked({
     size: 16,
     usage: srcUsage
   });
-  const dstBuffer = t.device.createBuffer({
+  const dstBuffer = t.createBufferTracked({
     size: 16,
     usage: dstUsage
   });
@@ -153,7 +153,7 @@ fn((t) => {
   const isSuccess = srcUsage === GPUBufferUsage.COPY_SRC && dstUsage === GPUBufferUsage.COPY_DST;
   const expectation = isSuccess ? 'Success' : 'FinishError';
 
-  t.TestCopyBufferToBuffer({
+  t.testCopyBufferToBuffer({
     srcBuffer,
     srcOffset: 0,
     dstBuffer,
@@ -174,16 +174,16 @@ paramsSubcasesOnly([
 fn((t) => {
   const { copySize, _isSuccess: isSuccess } = t.params;
 
-  const srcBuffer = t.device.createBuffer({
+  const srcBuffer = t.createBufferTracked({
     size: 16,
     usage: GPUBufferUsage.COPY_SRC
   });
-  const dstBuffer = t.device.createBuffer({
+  const dstBuffer = t.createBufferTracked({
     size: 16,
     usage: GPUBufferUsage.COPY_DST
   });
 
-  t.TestCopyBufferToBuffer({
+  t.testCopyBufferToBuffer({
     srcBuffer,
     srcOffset: 0,
     dstBuffer,
@@ -209,16 +209,16 @@ paramsSubcasesOnly([
 fn((t) => {
   const { srcOffset, dstOffset, _isSuccess: isSuccess } = t.params;
 
-  const srcBuffer = t.device.createBuffer({
+  const srcBuffer = t.createBufferTracked({
     size: 16,
     usage: GPUBufferUsage.COPY_SRC
   });
-  const dstBuffer = t.device.createBuffer({
+  const dstBuffer = t.createBufferTracked({
     size: 16,
     usage: GPUBufferUsage.COPY_DST
   });
 
-  t.TestCopyBufferToBuffer({
+  t.testCopyBufferToBuffer({
     srcBuffer,
     srcOffset,
     dstBuffer,
@@ -246,16 +246,16 @@ paramsSubcasesOnly([
 fn((t) => {
   const { srcOffset, dstOffset, copySize } = t.params;
 
-  const srcBuffer = t.device.createBuffer({
+  const srcBuffer = t.createBufferTracked({
     size: 16,
     usage: GPUBufferUsage.COPY_SRC
   });
-  const dstBuffer = t.device.createBuffer({
+  const dstBuffer = t.createBufferTracked({
     size: 16,
     usage: GPUBufferUsage.COPY_DST
   });
 
-  t.TestCopyBufferToBuffer({
+  t.testCopyBufferToBuffer({
     srcBuffer,
     srcOffset,
     dstBuffer,
@@ -281,16 +281,16 @@ paramsSubcasesOnly([
 fn((t) => {
   const { srcOffset, dstOffset, copySize, _isSuccess = false } = t.params;
 
-  const srcBuffer = t.device.createBuffer({
+  const srcBuffer = t.createBufferTracked({
     size: 32,
     usage: GPUBufferUsage.COPY_SRC
   });
-  const dstBuffer = t.device.createBuffer({
+  const dstBuffer = t.createBufferTracked({
     size: 32,
     usage: GPUBufferUsage.COPY_DST
   });
 
-  t.TestCopyBufferToBuffer({
+  t.testCopyBufferToBuffer({
     srcBuffer,
     srcOffset,
     dstBuffer,
@@ -310,12 +310,12 @@ paramsSubcasesOnly([
 fn((t) => {
   const { srcOffset, dstOffset, copySize } = t.params;
 
-  const buffer = t.device.createBuffer({
+  const buffer = t.createBufferTracked({
     size: 16,
     usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
   });
 
-  t.TestCopyBufferToBuffer({
+  t.testCopyBufferToBuffer({
     srcBuffer: buffer,
     srcOffset,
     dstBuffer: buffer,

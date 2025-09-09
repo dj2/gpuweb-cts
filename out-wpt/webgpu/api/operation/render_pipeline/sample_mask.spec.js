@@ -19,7 +19,8 @@ The cross-platform behavior is unknown. could be any of:
 Details could be found at: https://github.com/gpuweb/cts/issues/2201
 `;import { makeTestGroup } from '../../../../common/framework/test_group.js';
 import { assert, range } from '../../../../common/util/util.js';
-import { GPUTest, TextureTestMixin } from '../../../gpu_test.js';
+import { AllFeaturesMaxLimitsGPUTest } from '../../../gpu_test.js';
+import * as ttu from '../../../texture_test_utils.js';
 import { checkElementsPassPredicate, checkElementsEqual } from '../../../util/check_contents.js';
 import { Type } from '../../../util/conversion.js';
 import { TexelView } from '../../../util/texture/texel_view.js';
@@ -129,7 +130,7 @@ fragmentShaderOutputMaskOrAlphaToCoverageMask)
 const kSampleMaskTestShader = `
 struct Varyings {
   @builtin(position) Position : vec4<f32>,
-  @location(0) @interpolate(flat) uvFlat : vec2<f32>,
+  @location(0) @interpolate(flat, either) uvFlat : vec2<f32>,
   @location(1) @interpolate(perspective, sample) uvInterpolated : vec2<f32>,
 }
 
@@ -263,7 +264,7 @@ struct FragmentOutput2 {
 }
 `;
 
-class F extends TextureTestMixin(GPUTest) {
+class F extends AllFeaturesMaxLimitsGPUTest {
 
 
 
@@ -278,7 +279,8 @@ class F extends TextureTestMixin(GPUTest) {
     // texel 2 - Blue
     // texel 3 - Yellow
     const kSampleTextureSize = 2;
-    this.sampleTexture = this.createTextureFromTexelView(
+    this.sampleTexture = ttu.createTextureFromTexelView(
+      this,
       TexelView.fromTexelsAsBytes(format, (coord) => {
         const id = coord.x + coord.y * kSampleTextureSize;
         return kColors[id];
@@ -298,7 +300,7 @@ class F extends TextureTestMixin(GPUTest) {
     });
   }
 
-  GetTargetTexture(
+  getTargetTexture(
   sampleCount,
   rasterizationMask,
   pipeline,
@@ -331,7 +333,7 @@ class F extends TextureTestMixin(GPUTest) {
     const renderTargetTextures = [];
     const resolveTargetTextures = [];
     for (let i = 0; i < colorTargetsCount; i++) {
-      const renderTargetTexture = this.device.createTexture({
+      const renderTargetTexture = this.createTextureTracked({
         format,
         size: {
           width: kRenderTargetSize,
@@ -347,7 +349,7 @@ class F extends TextureTestMixin(GPUTest) {
       const resolveTargetTexture =
       sampleCount === 1 ?
       null :
-      this.device.createTexture({
+      this.createTextureTracked({
         format,
         size: {
           width: kRenderTargetSize,
@@ -361,7 +363,7 @@ class F extends TextureTestMixin(GPUTest) {
       resolveTargetTextures.push(resolveTargetTexture);
     }
 
-    const depthStencilTexture = this.device.createTexture({
+    const depthStencilTexture = this.createTextureTracked({
       size: {
         width: kRenderTargetSize,
         height: kRenderTargetSize
@@ -430,7 +432,7 @@ class F extends TextureTestMixin(GPUTest) {
     };
   }
 
-  CheckColorAttachmentResult(
+  checkColorAttachmentResult(
   texture,
   sampleCount,
   rasterizationMask,
@@ -453,7 +455,7 @@ class F extends TextureTestMixin(GPUTest) {
     this.expectGPUBufferValuesEqual(buffer, expected);
   }
 
-  CheckDepthStencilResult(
+  checkDepthStencilResult(
   aspect,
   depthStencilTexture,
   sampleCount,
@@ -531,11 +533,10 @@ combine('fragmentShaderOutputMask', [
 fn((t) => {
   const { sampleCount, rasterizationMask, sampleMask, fragmentShaderOutputMask } = t.params;
 
-  const fragmentMaskUniformBuffer = t.device.createBuffer({
+  const fragmentMaskUniformBuffer = t.createBufferTracked({
     size: 4,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
   });
-  t.trackForCleanup(fragmentMaskUniformBuffer);
   t.device.queue.writeBuffer(
     fragmentMaskUniformBuffer,
     0,
@@ -573,14 +574,14 @@ fn((t) => {
     }
   });
 
-  const { color, depthStencil } = t.GetTargetTexture(
+  const { color, depthStencil } = t.getTargetTexture(
     sampleCount,
     rasterizationMask,
     pipeline,
     fragmentMaskUniformBuffer
   );
 
-  t.CheckColorAttachmentResult(
+  t.checkColorAttachmentResult(
     color,
     sampleCount,
     rasterizationMask,
@@ -588,7 +589,7 @@ fn((t) => {
     fragmentShaderOutputMask
   );
 
-  t.CheckDepthStencilResult(
+  t.checkDepthStencilResult(
     'depth-only',
     depthStencil,
     sampleCount,
@@ -597,7 +598,7 @@ fn((t) => {
     fragmentShaderOutputMask
   );
 
-  t.CheckDepthStencilResult(
+  t.checkDepthStencilResult(
     'stencil-only',
     depthStencil,
     sampleCount,
@@ -647,11 +648,10 @@ fn(async (t) => {
   const sampleMask = 0xffffffff;
 
   const alphaValues = new Float32Array(4); // [alpha0, alpha1, 0, 0]
-  const alphaValueUniformBuffer = t.device.createBuffer({
+  const alphaValueUniformBuffer = t.createBufferTracked({
     size: alphaValues.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
   });
-  t.trackForCleanup(alphaValueUniformBuffer);
 
   const module = t.device.createShaderModule({ code: kSampleMaskTestShader });
   const pipeline = t.device.createRenderPipeline({
@@ -696,7 +696,7 @@ fn(async (t) => {
     alphaValues[1] = alpha1;
     t.device.queue.writeBuffer(alphaValueUniformBuffer, 0, alphaValues);
 
-    const { color, depthStencil } = t.GetTargetTexture(
+    const { color, depthStencil } = t.getTargetTexture(
       sampleCount,
       rasterizationMask,
       pipeline,

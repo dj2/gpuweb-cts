@@ -13,7 +13,7 @@ Validation tests for the ${builtin}() builtin.
 import { makeTestGroup } from '../../../../../../common/framework/test_group.js';
 import { keysOf, objectsToRecord } from '../../../../../../common/util/data_tables.js';
 import { assert } from '../../../../../../common/util/util.js';
-import { kAllTextureFormats, kTextureFormatInfo } from '../../../../../format_info.js';
+import { kAllTextureFormats, kPossibleStorageTextureFormats } from '../../../../../format_info.js';
 import {
   Type,
   kAllScalarsAndVectors,
@@ -80,7 +80,7 @@ const kValidTextureLoadParameterTypesForNonStorageTextures: { [n: string]: Textu
       hasSampleIndexArg: true,
     },
     texture_external: { coordsArgTypes: kCoords2DTypes },
-  };
+  } as const;
 
 const kValidTextureLoadParameterTypesForStorageTextures: { [n: string]: TextureLoadArguments } = {
   texture_storage_1d: { coordsArgTypes: [Type.i32, Type.u32] },
@@ -115,6 +115,8 @@ Validates the return type of ${builtin} is the expected type.
       )
   )
   .fn(t => {
+    t.skipIfTextureLoadNotSupportedForTextureType(t.params.textureType);
+
     const { returnType, textureType, texelType } = t.params;
     const returnVarType = kValuesTypes[returnType];
     const { coordsArgTypes, hasArrayIndexArg, hasLevelArg, hasSampleIndexArg } =
@@ -159,6 +161,8 @@ Validates that only incorrect coords arguments are rejected by ${builtin}
       .filter(t => !isUnsignedType(kValuesTypes[t.coordType]) || t.value >= 0)
   )
   .fn(t => {
+    t.skipIfTextureLoadNotSupportedForTextureType(t.params.textureType);
+
     const { textureType, coordType, texelType, value } = t.params;
     const coordArgType = kValuesTypes[coordType];
     const { coordsArgTypes, hasArrayIndexArg, hasLevelArg, hasSampleIndexArg } =
@@ -196,9 +200,7 @@ Validates that only incorrect coords arguments are rejected by ${builtin}
       .combine('textureType', kStorageTextureTypes)
       .combine('coordType', keysOf(kValuesTypes))
       .beginSubcases()
-      .combine('format', kAllTextureFormats)
-      // filter to only storage texture formats.
-      .filter(t => !!kTextureFormatInfo[t.format].color?.storage)
+      .combine('format', kPossibleStorageTextureFormats)
       .combine('value', [-1, 0, 1] as const)
       // filter out unsigned types with negative values
       .filter(t => !isUnsignedType(kValuesTypes[t.coordType]) || t.value >= 0)
@@ -208,6 +210,9 @@ Validates that only incorrect coords arguments are rejected by ${builtin}
   )
   .fn(t => {
     const { textureType, coordType, format, value } = t.params;
+    t.skipIfTextureFormatNotSupported(format);
+    t.skipIfTextureFormatNotUsableWithStorageAccessMode('read-only', format);
+
     const coordArgType = kValuesTypes[coordType];
     const { coordsArgTypes, hasArrayIndexArg } =
       kValidTextureLoadParameterTypesForStorageTextures[textureType];
@@ -252,6 +257,8 @@ Validates that only incorrect array_index arguments are rejected by ${builtin}
       .filter(t => !isUnsignedType(kValuesTypes[t.arrayIndexType]) || t.value >= 0)
   )
   .fn(t => {
+    t.skipIfTextureLoadNotSupportedForTextureType(t.params.textureType);
+
     const { textureType, arrayIndexType, texelType, value } = t.params;
     const arrayIndexArgType = kValuesTypes[arrayIndexType];
     const args = [arrayIndexArgType.create(value)];
@@ -292,9 +299,7 @@ Validates that only incorrect array_index arguments are rejected by ${builtin}
       )
       .combine('arrayIndexType', keysOf(kValuesTypes))
       .beginSubcases()
-      .combine('format', kAllTextureFormats)
-      // filter to only storage texture formats.
-      .filter(t => !!kTextureFormatInfo[t.format].color?.storage)
+      .combine('format', kPossibleStorageTextureFormats)
       .combine('value', [-1, 0, 1])
       // filter out unsigned types with negative values
       .filter(t => !isUnsignedType(kValuesTypes[t.arrayIndexType]) || t.value >= 0)
@@ -304,6 +309,9 @@ Validates that only incorrect array_index arguments are rejected by ${builtin}
   )
   .fn(t => {
     const { textureType, arrayIndexType, format, value } = t.params;
+    t.skipIfTextureFormatNotSupported(format);
+    t.skipIfTextureFormatNotUsableWithStorageAccessMode('read-only', format);
+
     const arrayIndexArgType = kValuesTypes[arrayIndexType];
     const args = [arrayIndexArgType.create(value)];
     const { coordsArgTypes, hasLevelArg } =
@@ -349,6 +357,8 @@ Validates that only incorrect level arguments are rejected by ${builtin}
       .filter(t => !isUnsignedType(kValuesTypes[t.levelType]) || t.value >= 0)
   )
   .fn(t => {
+    t.skipIfTextureLoadNotSupportedForTextureType(t.params.textureType);
+
     const { textureType, levelType, texelType, value } = t.params;
     const levelArgType = kValuesTypes[levelType];
     const { coordsArgTypes, hasArrayIndexArg } =
@@ -396,6 +406,8 @@ Validates that only incorrect sample_index arguments are rejected by ${builtin}
       .filter(t => !isUnsignedType(kValuesTypes[t.sampleIndexType]) || t.value >= 0)
   )
   .fn(t => {
+    t.skipIfTextureLoadNotSupportedForTextureType(t.params.textureType);
+
     const { textureType, sampleIndexType, texelType, value } = t.params;
     const sampleIndexArgType = kValuesTypes[sampleIndexType];
     const { coordsArgTypes, hasArrayIndexArg, hasLevelArg } =
@@ -431,10 +443,11 @@ Validates that incompatible texture types don't work with ${builtin}
     u
       .combine('testTextureType', kTestTextureTypes)
       .beginSubcases()
-      .combine('textureType', keysOf(kValidTextureLoadParameterTypesForNonStorageTextures))
+      .combine('textureType', kNonStorageTextureTypes)
   )
   .fn(t => {
     const { testTextureType, textureType } = t.params;
+    t.skipIfTextureLoadNotSupportedForTextureType(textureType);
     const { coordsArgTypes, hasArrayIndexArg, hasLevelArg, hasSampleIndexArg } =
       kValidTextureLoadParameterTypesForNonStorageTextures[textureType];
 
@@ -484,11 +497,12 @@ Validates that incompatible texture types don't work with ${builtin}
     u
       .combine('testTextureType', kTestTextureTypes)
       .beginSubcases()
-      .combine('textureType', keysOf(kValidTextureLoadParameterTypesForStorageTextures))
+      .combine('textureType', kStorageTextureTypes)
       .combine('format', kAllTextureFormats)
   )
   .fn(t => {
     const { testTextureType, textureType } = t.params;
+    t.skipIfTextureLoadNotSupportedForTextureType(textureType);
     const { coordsArgTypes, hasArrayIndexArg, hasLevelArg, hasSampleIndexArg } =
       kValidTextureLoadParameterTypesForStorageTextures[textureType];
 

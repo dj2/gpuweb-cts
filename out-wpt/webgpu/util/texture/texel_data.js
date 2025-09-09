@@ -78,12 +78,15 @@ function makePerTexelComponent(components, value) {
  * @returns {ComponentMapFn} The map function which clones the input component values, and applies
  *                           `fn` to each of component of `components`.
  */
-function applyEach(fn, components) {
+function applyEach(
+fn,
+components)
+{
   return (values) => {
     values = Object.assign({}, values);
     for (const c of components) {
       assert(values[c] !== undefined);
-      values[c] = fn(values[c]);
+      values[c] = fn(values[c], c);
     }
     return values;
   };
@@ -122,7 +125,13 @@ const decodeSRGB = (components) => {
 export function makeClampToRange(format) {
   const repr = kTexelRepresentationInfo[format];
   assert(repr.numericRange !== null, 'Format has unknown numericRange');
-  return applyEach((x) => clamp(x, repr.numericRange), repr.componentOrder);
+  const perComponentRanges = repr.numericRange;
+  const range = repr.numericRange;
+
+  return applyEach((x, component) => {
+    const perComponentRange = perComponentRanges[component];
+    return clamp(x, perComponentRange ? perComponentRange : range);
+  }, repr.componentOrder);
 }
 
 // MAINTENANCE_TODO: Look into exposing this map to the test fixture so that it can be GCed at the
@@ -637,6 +646,19 @@ const kFloat10Format = { signed: 0, exponentBits: 5, mantissaBits: 5, bias: 15 }
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 export const kTexelRepresentationInfo =
 
 {
@@ -645,6 +667,8 @@ export const kTexelRepresentationInfo =
     'r8snorm': makeNormalizedInfo(kR, 8, { signed: true, sRGB: false }),
     'r8uint': makeIntegerInfo(kR, 8, { signed: false }),
     'r8sint': makeIntegerInfo(kR, 8, { signed: true }),
+    'r16unorm': makeNormalizedInfo(kR, 16, { signed: false, sRGB: false }),
+    'r16snorm': makeNormalizedInfo(kR, 16, { signed: true, sRGB: false }),
     'r16uint': makeIntegerInfo(kR, 16, { signed: false }),
     'r16sint': makeIntegerInfo(kR, 16, { signed: true }),
     'r16float': makeFloatInfo(kR, 16),
@@ -655,6 +679,8 @@ export const kTexelRepresentationInfo =
     'r32uint': makeIntegerInfo(kR, 32, { signed: false }),
     'r32sint': makeIntegerInfo(kR, 32, { signed: true }),
     'r32float': makeFloatInfo(kR, 32),
+    'rg16unorm': makeNormalizedInfo(kRG, 16, { signed: false, sRGB: false }),
+    'rg16snorm': makeNormalizedInfo(kRG, 16, { signed: true, sRGB: false }),
     'rg16uint': makeIntegerInfo(kRG, 16, { signed: false }),
     'rg16sint': makeIntegerInfo(kRG, 16, { signed: true }),
     'rg16float': makeFloatInfo(kRG, 16),
@@ -668,6 +694,8 @@ export const kTexelRepresentationInfo =
     'rg32uint': makeIntegerInfo(kRG, 32, { signed: false }),
     'rg32sint': makeIntegerInfo(kRG, 32, { signed: true }),
     'rg32float': makeFloatInfo(kRG, 32),
+    'rgba16unorm': makeNormalizedInfo(kRGBA, 16, { signed: false, sRGB: false }),
+    'rgba16snorm': makeNormalizedInfo(kRGBA, 16, { signed: true, sRGB: false }),
     'rgba16uint': makeIntegerInfo(kRGBA, 16, { signed: false }),
     'rgba16sint': makeIntegerInfo(kRGBA, 16, { signed: true }),
     'rgba16float': makeFloatInfo(kRGBA, 16),
@@ -726,7 +754,12 @@ export const kTexelRepresentationInfo =
         return components;
       },
       bitsToULPFromZero: (components) => components,
-      numericRange: null
+      numericRange: {
+        R: { min: 0, max: 0x3ff, finiteMin: 0, finiteMax: 0x3ff },
+        G: { min: 0, max: 0x3ff, finiteMin: 0, finiteMax: 0x3ff },
+        B: { min: 0, max: 0x3ff, finiteMin: 0, finiteMax: 0x3ff },
+        A: { min: 0, max: 0x3, finiteMin: 0, finiteMax: 0x3 }
+      }
     },
     rgb10a2unorm: {
       componentOrder: kRGBA,
