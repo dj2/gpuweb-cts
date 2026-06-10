@@ -152,6 +152,15 @@ export const listing = [
       "operation",
       "command_buffer",
       "programmable",
+      "immediate"
+    ]
+  },
+  {
+    "file": [
+      "api",
+      "operation",
+      "command_buffer",
+      "programmable",
       "state_tracking"
     ]
   },
@@ -384,6 +393,14 @@ export const listing = [
       "operation",
       "render_pass",
       "storeop2"
+    ]
+  },
+  {
+    "file": [
+      "api",
+      "operation",
+      "render_pass",
+      "transient_attachment"
     ]
   },
   {
@@ -704,6 +721,15 @@ export const listing = [
       "capability_checks",
       "features",
       "query_types"
+    ]
+  },
+  {
+    "file": [
+      "api",
+      "validation",
+      "capability_checks",
+      "features",
+      "subgroup_size_control"
     ]
   },
   {
@@ -1126,6 +1152,13 @@ export const listing = [
     "file": [
       "api",
       "validation",
+      "dispatch"
+    ]
+  },
+  {
+    "file": [
+      "api",
+      "validation",
       "encoding",
       "beginComputePass"
     ]
@@ -1337,6 +1370,15 @@ export const listing = [
       "api",
       "validation",
       "encoding",
+      "programmable",
+      "pipeline_immediate"
+    ]
+  },
+  {
+    "file": [
+      "api",
+      "validation",
+      "encoding",
       "queries",
       "begin_end"
     ]
@@ -1440,6 +1482,14 @@ export const listing = [
       "api",
       "validation",
       "non_filterable_texture"
+    ]
+  },
+  {
+    "file": [
+      "api",
+      "validation",
+      "pipeline",
+      "immediates"
     ]
   },
   {
@@ -4188,6 +4238,14 @@ export const listing = [
     "file": [
       "shader",
       "execution",
+      "statement",
+      "swizzle_assignment"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
       "value_init"
     ]
   },
@@ -4218,6 +4276,14 @@ export const listing = [
       "validation",
       "const_assert",
       "const_assert"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "decl",
+      "assignment_statement"
     ]
   },
   {
@@ -5657,6 +5723,14 @@ export const listing = [
     "file": [
       "shader",
       "validation",
+      "extension",
+      "subgroup_size_control"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
       "functions",
       "alias_analysis"
     ]
@@ -5995,6 +6069,14 @@ export const listing = [
       "validation",
       "statement",
       "switch"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "statement",
+      "swizzle_assignment"
     ]
   },
   {

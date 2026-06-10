@@ -77,6 +77,10 @@ export const kAllBufferUsageBits = kBufferUsages.reduce(
   0
 );
 
+/** An arbitrary invalid buffer usage bit. */
+export const kSomeBogusBufferUsage = 0x4000_0000;
+assert((kSomeBogusBufferUsage & kAllBufferUsageBits) === 0);
+
 // Errors
 
 /** Per-GPUErrorFilter info. */
@@ -225,7 +229,7 @@ const kTextureUsageInfo =
 /** List of all GPUTextureUsage values. */
 export const kTextureUsages = numericKeysOf(kTextureUsageInfo);
 /** Bitmask of all known texture usages. */
-const kAllTextureUsages = kTextureUsages.reduce((acc, usage) => acc | usage, 0);
+export const kAllTextureUsages = kTextureUsages.reduce((acc, usage) => acc | usage, 0);
 
 /** An arbitrary invalid texture usage bit. */
 export const kSomeBogusTextureUsage = 0x4000_0000;
@@ -979,5 +983,8 @@ export const kKnownWGSLLanguageFeatures = [
 'uniform_buffer_standard_layout',
 'texture_and_sampler_let',
 'subgroup_id',
-'subgroup_uniformity'];
+'subgroup_uniformity',
+'swizzle_assignment',
+'linear_indexing',
+'texture_formats_tier1'];
 //# sourceMappingURL=capability_info.js.map
