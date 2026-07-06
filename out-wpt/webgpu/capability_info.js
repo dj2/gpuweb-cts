@@ -969,7 +969,9 @@ export const kFeatureNameInfo =
   'texture-formats-tier1': {},
   'texture-formats-tier2': {},
   'primitive-index': {},
-  'texture-component-swizzle': {}
+  'texture-component-swizzle': {},
+  'subgroup-size-control': {},
+  ['atomic-vec2u-min-max']: {}
 };
 /** List of all GPUFeatureName values. */
 export const kFeatureNames = keysOf(kFeatureNameInfo);
@@ -986,4 +988,5 @@ export const kKnownWGSLLanguageFeatures = [
 'subgroup_uniformity',
 'swizzle_assignment',
 'linear_indexing',
-'texture_formats_tier1'];
+'texture_formats_tier1',
+'immediate_address_space'];

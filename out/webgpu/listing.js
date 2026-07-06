@@ -2650,6 +2650,28 @@ export const listing = [
       "call",
       "builtin",
       "atomics",
+      "atomicStoreMax"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "call",
+      "builtin",
+      "atomics",
+      "atomicStoreMin"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "execution",
+      "expression",
+      "call",
+      "builtin",
+      "atomics",
       "atomicSub"
     ]
   },
@@ -4315,6 +4337,14 @@ export const listing = [
       "shader",
       "validation",
       "decl",
+      "immediate"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "decl",
       "let"
     ]
   },
@@ -4541,6 +4571,16 @@ export const listing = [
       "call",
       "builtin",
       "atanh"
+    ]
+  },
+  {
+    "file": [
+      "shader",
+      "validation",
+      "expression",
+      "call",
+      "builtin",
+      "atomicStoreMinMax"
     ]
   },
   {
